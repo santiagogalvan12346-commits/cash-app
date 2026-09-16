@@ -288,21 +288,19 @@ def update_payments_status(df: pd.DataFrame, payment_ids: list[str], new_status:
     return df
 
 
-def generate_payment_ladder(
+def generate_custom_ladder(
     df_existing: pd.DataFrame,
     tesoreria: str,
     proveedor: str,
     proyecto: str,
     concepto: str,
     moneda: str,
-    importe_por_cuota: float,
-    cantidad_cuotas: int,
-    frecuencia: str,
-    fecha_inicio: dt.date,
-    tc: float = 1.0,
-    obs_base: str = "",
+    tc: float,
+    items: list[dict],
 ) -> pd.DataFrame:
-    """Genera automáticamente las cuotas de una escalera."""
+    """
+    Genera filas para una escalera con fechas e importes no lineales / personalizados.
+    """
     rows = []
     base_id_num = 1
     if not df_existing.empty:
@@ -310,40 +308,26 @@ def generate_payment_ladder(
         if not nums.empty:
             base_id_num = nums.max() + 1
 
-    current_date = pd.Timestamp(fecha_inicio)
-
-    for i in range(cantidad_cuotas):
-        cuota_num = i + 1
-        obs = f"Cuota {cuota_num}/{cantidad_cuotas}"
-        if obs_base:
-            obs += f" | {obs_base}"
-
+    total_items = len(items)
+    for i, item in enumerate(items):
         prefix = "EFC" if tesoreria == "Tucumán" else "BA"
         new_id = f"{prefix}-{base_id_num + i:03d}"
+        f_val = pd.Timestamp(item["fecha"])
+        imp_val = float(item["importe"])
 
         rows.append({
             "id": new_id,
             "tesoreria": tesoreria,
-            "fecha": current_date,
+            "fecha": f_val,
             "proveedor": proveedor.strip().upper(),
             "proyecto": proyecto.strip().upper(),
             "concepto": concepto.strip(),
             "moneda": moneda,
-            "importe": float(importe_por_cuota),
+            "importe": imp_val,
             "tc": float(tc) if moneda == "USD" else 1.0,
             "estado": "Pendiente",
-            "obs": obs,
+            "obs": f"Cuota {i + 1}/{total_items}",
         })
-
-        if frecuencia == "Semanal":
-            current_date += pd.Timedelta(days=7)
-        elif frecuencia == "Quincenal":
-            current_date += pd.Timedelta(days=14)
-        elif frecuencia == "Mensual":
-            year = current_date.year + (current_date.month // 12)
-            month = (current_date.month % 12) + 1
-            day = min(current_date.day, 28)
-            current_date = pd.Timestamp(year=year, month=month, day=day)
 
     new_df = pd.DataFrame(rows, columns=COLUMNS)
     return normalize_df(new_df)
