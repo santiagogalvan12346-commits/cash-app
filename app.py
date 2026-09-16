@@ -2,19 +2,23 @@
 """
 Sistema de Gestión de Efectivo — Multisede (Tucumán / Buenos Aires)
 ====================================================================
-Versión Optimizada: Detalle de Escaleras Limpio, Conciliador Rápido
-y Asistente de Proyección Masiva.
+Versión Optimizada: Detalle de Escaleras con Descarga Excel, Conciliador Rápido
+y Carga Dinámica de Escaleras No Lineales.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 import core
 
@@ -152,7 +156,7 @@ tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_e
     "🗓️ Matriz Semanal",
     "🪜 Detalle de Escaleras",
     "⚡ Conciliación Rápida",
-    "➕ Nueva Escalera",
+    "➕ Cargar Nueva Escalera",
     "📝 Registro Manual (ABM)",
     "⬇️ Exportar",
 ])
@@ -246,11 +250,11 @@ with tab_matriz:
         st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
 # ---------------------------------------------------------------------------
-# TAB 3 — Control Detallado de Escaleras (ORDEN Y COLUMNAS AJUSTADAS)
+# TAB 3 — Control Detallado de Escaleras (CON BOTÓN DE EXCEL NATIVO)
 # ---------------------------------------------------------------------------
 with tab_escaleras:
     st.subheader("🪜 Control Individual de Escaleras y Presupuestos")
-    st.caption("Inspeccioná cada contrato y cuota de forma vertical sin datos innecesarios.")
+    st.caption("Inspeccioná cada contrato y cuota de forma vertical. Podés descargar el archivo Excel limpio para compartir.")
 
     prov_list = sorted(df_filtered["proveedor"].dropna().unique().tolist())
     if not prov_list:
@@ -302,6 +306,74 @@ with tab_escaleras:
             })
             return res
 
+        def export_provider_to_excel(df_table: pd.DataFrame, prov_name: str) -> bytes:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Escalera de Pagos"
+
+            ws["A1"] = f"ESCALERA DE PAGOS — {prov_name.upper()}"
+            ws["A1"].font = Font(size=13, bold=True, color="1F4E78")
+            ws["A2"] = f"Generado el: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}"
+            ws["A2"].font = Font(size=9, italic=True, color="666666")
+
+            headers = list(df_table.columns)
+            h_row = 4
+            for col_num, header in enumerate(headers, 1):
+                cell = ws.cell(row=h_row, column=col_num, value=header)
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            for r_idx, (_, row) in enumerate(df_table.iterrows()):
+                row_num = h_row + 1 + r_idx
+                for c_idx, h in enumerate(headers, 1):
+                    val = row[h]
+                    cell = ws.cell(row=row_num, column=c_idx)
+                    if h == "Fecha Vto." and pd.notna(val):
+                        cell.value = val.strftime("%d/%m/%Y") if hasattr(val, "strftime") else str(val)
+                        cell.alignment = Alignment(horizontal="center")
+                    elif h in ("Importe Pactado", "TC"):
+                        cell.value = float(val) if pd.notna(val) else 0.0
+                        cell.number_format = "#,##0.00"
+                    elif h == "Importe ARS":
+                        cell.value = float(val) if pd.notna(val) else 0.0
+                        cell.number_format = "$ #,##0"
+                    else:
+                        cell.value = str(val) if pd.notna(val) else ""
+
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or "")) for cell in col)
+                col_letter = get_column_letter(col[0].column)
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+            buf = BytesIO()
+            wb.save(buf)
+            return buf.getvalue()
+
+        def render_ladder_ui(sub_df: pd.DataFrame, label: str):
+            table_view = format_ladder_table(sub_df)
+            excel_bytes = export_provider_to_excel(table_view, p_sel)
+
+            c_down, _ = st.columns([2, 3])
+            with c_down:
+                st.download_button(
+                    label="📥 Descargar Escalera en Excel (.xlsx)",
+                    data=excel_bytes,
+                    file_name=f"Escalera_{p_sel.replace(' ', '_')}_{dt.date.today().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"dl_{label}_{p_sel}",
+                    type="primary",
+                )
+
+            st.dataframe(
+                table_view.style.format({
+                    "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
+                    "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
+                }),
+                use_container_width=True,
+                hide_index=True,
+            )
+
         if len(conceptos) > 1:
             st.markdown(f"##### Se detectaron **{len(conceptos)} escaleras/presupuestos** en simultáneo:")
             esc_tabs = st.tabs([f"📌 {c}" for c in conceptos] + ["📑 Todas las Escaleras Consolidadas"])
@@ -313,41 +385,15 @@ with tab_escaleras:
                     e1.write(f"**Total Contrato:** {fmt_ars(sub_kpis.total_comprometido)}")
                     e2.write(f"**Pagado:** {fmt_ars(sub_kpis.total_pagado)}")
                     e3.write(f"**Saldo:** {fmt_ars(sub_kpis.saldo_pendiente)}")
+                    render_ladder_ui(sub_esc, f"tab_{idx}")
 
-                    table_view = format_ladder_table(sub_esc)
-                    st.dataframe(
-                        table_view.style.format({
-                            "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
-                            "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
-                        }),
-                        use_container_width=True,
-                        hide_index=True,
-                    )
             with esc_tabs[-1]:
-                all_view = format_ladder_table(df_p)
-                st.dataframe(
-                    all_view.style.format({
-                        "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
-                        "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
-                    }),
-                    use_container_width=True,
-                    height=380,
-                    hide_index=True,
-                )
+                render_ladder_ui(df_p, "tab_all")
         else:
-            single_view = format_ladder_table(df_p)
-            st.dataframe(
-                single_view.style.format({
-                    "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
-                    "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
-                }),
-                use_container_width=True,
-                height=380,
-                hide_index=True,
-            )
+            render_ladder_ui(df_p, "tab_single")
 
 # ---------------------------------------------------------------------------
-# TAB 4 — Conciliador Rápido
+# TAB 4 — Conciliador Rápido (De Pendiente a Pagado)
 # ---------------------------------------------------------------------------
 with tab_conciliar:
     st.subheader("⚡ Conciliador Rápido de Pagos")
@@ -398,70 +444,115 @@ with tab_conciliar:
                 st.info(f"Seleccionados **{len(pagos_a_conciliar)} pagos** por un total de **{fmt_ars(suma_sel)}**.")
 
 # ---------------------------------------------------------------------------
-# TAB 5 — Generador de Nuevas Escaleras
+# TAB 5 — Cargar Nueva Escalera (INTERACTIVA, NO LINEAL Y SIN ST.FORM)
 # ---------------------------------------------------------------------------
 with tab_asistente:
-    st.subheader("➕ Generador Automático de Escaleras de Pago")
-    st.caption("Configurá un acuerdo de pago en cuotas y proyectá toda la escalera automáticamente.")
+    st.subheader("➕ Cargar Nueva Escalera de Pago")
+    st.caption("Configurá la cabecera y completá las fechas y montos específicos de cada tramo en la grilla.")
 
-    with st.form("form_generador_escalera"):
-        col_g1, col_g2, col_g3 = st.columns(3)
-        with col_g1:
-            g_tesoreria = st.selectbox("Tesorería / Sede", core.TESORERIAS_VALIDAS,
-                                       index=0 if sede_global == "Tucumán" else 1)
-            g_prov_tipo = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True)
-            prov_options = sorted(get_df()["proveedor"].dropna().unique().tolist())
-            if g_prov_tipo == "Existente" and prov_options:
-                g_proveedor = st.selectbox("Seleccione", prov_options)
-            else:
-                g_proveedor = st.text_input("Nombre de Proveedor").strip().upper()
+    c_cab1, c_cab2, c_cab3 = st.columns(3)
+    with c_cab1:
+        esc_tesoreria = st.selectbox(
+            "Tesorería / Sede", core.TESORERIAS_VALIDAS,
+            index=0 if sede_global == "Tucumán" else 1, key="esc_sede"
+        )
+        tipo_prov = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True, key="esc_tipo_prov")
+        prov_opts = sorted(get_df()["proveedor"].dropna().unique().tolist())
+        if tipo_prov == "Existente" and prov_opts:
+            esc_proveedor = st.selectbox("Seleccionar de la lista", prov_opts, key="esc_prov_sel")
+        else:
+            esc_proveedor = st.text_input("Escribir nombre del nuevo proveedor", key="esc_prov_new").strip().upper()
 
-        with col_g2:
-            g_proyecto = st.text_input("Proyecto / Obra", value="L2 TUC" if g_tesoreria == "Tucumán" else "L2 BA")
-            g_concepto = st.text_input("Presupuesto / Observaciones", placeholder="Ej: Obra Galpón - Tramo 1")
-            g_obs = st.text_input("Nota adicional (opcional)", placeholder="Ej: Efectivo / Cheque")
+    with c_cab2:
+        esc_proyecto = st.text_input(
+            "Proyecto / Obra",
+            value="L2 TUC" if esc_tesoreria == "Tucumán" else "L2 BA",
+            key="esc_proy"
+        )
+        esc_concepto = st.text_input(
+            "Presupuesto / Observaciones",
+            placeholder="Ej: Carpintería Aluminio - Presupuesto N° 450",
+            key="esc_conc"
+        )
 
-        with col_g3:
-            g_moneda = st.selectbox("Moneda del Acuerdo", core.MONEDAS_VALIDAS)
-            g_tc = st.number_input("Tipo de Cambio (si es USD)", value=1400.0 if g_moneda == "USD" else 1.0,
-                                   disabled=(g_moneda == "ARS"), step=5.0)
+    with c_cab3:
+        esc_moneda = st.selectbox("Moneda del Acuerdo", core.MONEDAS_VALIDAS, key="esc_mon")
+        if esc_moneda == "USD":
+            esc_tc = st.number_input("Tipo de Cambio acordado (USD)", min_value=1.0, value=1400.0, step=10.0, key="esc_tc_usd")
+        else:
+            esc_tc = 1.0
+            st.text_input("Tipo de Cambio", value="1.00 (ARS)", disabled=True)
 
-        st.markdown("##### Plan de Cuotas y Vencimientos")
-        cq1, cq2, cq3, cq4 = st.columns(4)
-        g_fecha_inicio = cq1.date_input("Fecha Primer Pago", value=dt.date.today())
-        g_frecuencia = cq2.selectbox("Frecuencia", ["Semanal", "Quincenal", "Mensual"], index=0)
-        g_cuotas = cq3.number_input("Cantidad de Cuotas", min_value=1, max_value=60, value=6, step=1)
-        g_importe_cuota = cq4.number_input("Importe de Cada Cuota", min_value=1.0, value=1000000.0, step=50000.0)
+    st.markdown("---")
+    st.markdown("##### Cronograma de Pagos (Fechas e Importes Personalizados)")
 
-        total_proy = g_importe_cuota * g_cuotas
-        total_proy_ars = total_proy * g_tc if g_moneda == "USD" else total_proy
-        st.info(f"📊 Resumen: **{g_cuotas} cuotas** de {g_moneda} {g_importe_cuota:,.0f} = **Total {g_moneda} {total_proy:,.0f}** ({fmt_ars(total_proy_ars)})")
+    col_cant, _ = st.columns([1, 3])
+    with col_cant:
+        cant_cuotas = st.number_input("Cantidad de tramos / cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
 
-        btn_generar = st.form_submit_button("🚀 Generar y Guardar Escalera en la Base", type="primary")
+    if "grid_ladder_data" not in st.session_state or len(st.session_state.grid_ladder_data) != cant_cuotas:
+        base_f = dt.date.today()
+        st.session_state.grid_ladder_data = pd.DataFrame([
+            {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": base_f + dt.timedelta(days=7 * i), "Importe": 0.0}
+            for i in range(int(cant_cuotas))
+        ])
 
-        if btn_generar:
-            if not g_proveedor or not g_concepto:
-                st.error("Por favor completá el Proveedor y el Presupuesto / Observaciones.")
-            else:
-                df_curr = get_df()
-                new_ladder = core.generate_payment_ladder(
-                    df_existing=df_curr,
-                    tesoreria=g_tesoreria,
-                    proveedor=g_proveedor,
-                    proyecto=g_proyecto,
-                    concepto=g_concepto,
-                    moneda=g_moneda,
-                    importe_por_cuota=g_importe_cuota,
-                    cantidad_cuotas=int(g_cuotas),
-                    frecuencia=g_frecuencia,
-                    fecha_inicio=g_fecha_inicio,
-                    tc=g_tc,
-                    obs_base=g_obs,
-                )
-                df_comb = pd.concat([df_curr[core.COLUMNS], new_ladder[core.COLUMNS]], ignore_index=True)
-                set_df(df_comb)
-                st.success(f"¡Se generaron {len(new_ladder)} cuotas para {g_proveedor}!")
-                st.rerun()
+    grid_edited = st.data_editor(
+        st.session_state.grid_ladder_data,
+        column_config={
+            "Tramo": st.column_config.TextColumn("Tramo", disabled=True),
+            "Fecha Vto.": st.column_config.DateColumn("Fecha Vto.", format="DD/MM/YYYY", required=True),
+            "Importe": st.column_config.NumberColumn(
+                f"Importe en {esc_moneda}",
+                help="Ingresá el monto correspondiente a esta cuota",
+                min_value=0.0,
+                format="%.2f",
+                required=True,
+            ),
+        },
+        use_container_width=True,
+        hide_index=True,
+        key="grid_cuotas_editor",
+    )
+
+    total_acordado = float(grid_edited["Importe"].sum())
+    total_ars_calc = total_acordado * esc_tc if esc_moneda == "USD" else total_acordado
+
+    st.info(
+        f"📊 **Resumen del Acuerdo:** {cant_cuotas} tramos · Total: **{esc_moneda} {total_acordado:,.2f}** "
+        f"{f'(Equivalente: **{fmt_ars(total_ars_calc)}** al TC {esc_tc:,.2f})' if esc_moneda == 'USD' else ''}"
+    )
+
+    if st.button("🚀 Guardar Escalera Completa en la Base", type="primary", use_container_width=True):
+        if not esc_proveedor:
+            st.error("Debés indicar el nombre del Proveedor.")
+        elif not esc_concepto:
+            st.error("Debés completar el campo Presupuesto / Observaciones.")
+        elif total_acordado <= 0:
+            st.error("El total de los importes debe ser mayor a 0.")
+        else:
+            items_ladder = []
+            for _, r in grid_edited.iterrows():
+                items_ladder.append({
+                    "fecha": pd.to_datetime(r["Fecha Vto."]),
+                    "importe": float(r["Importe"]),
+                })
+
+            df_curr = get_df()
+            new_rows = core.generate_custom_ladder(
+                df_existing=df_curr,
+                tesoreria=esc_tesoreria,
+                proveedor=esc_proveedor,
+                proyecto=esc_proyecto,
+                concepto=esc_concepto,
+                moneda=esc_moneda,
+                tc=esc_tc,
+                items=items_ladder,
+            )
+            df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
+            set_df(df_total)
+            st.success(f"¡Se incorporaron exitosamente los {len(new_rows)} pagos de la escalera para {esc_proveedor}!")
+            st.rerun()
 
 # ---------------------------------------------------------------------------
 # TAB 6 — Registro Manual (ABM Individual)
