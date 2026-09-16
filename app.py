@@ -221,33 +221,134 @@ with tab_kpi:
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------------------------
-# TAB 2 — Matriz Semanal Consolidada (CONSERVA COLUMNA SEMANA)
+# TAB 2 — Matriz Semanal Consolidada (CON FILTRO DE FECHAS Y DESCARGA EXCEL)
 # ---------------------------------------------------------------------------
 with tab_matriz:
     st.subheader("Matriz Semanal de Flujo de Efectivo (Consolidada)")
-    st.caption("Visión consolidada por proveedor y semana. Incluye total semanal y acumulado.")
+    st.caption("Visión consolidada por proveedor y semana. Filtrá semanas pasadas y descargá el reporte en Excel listo para enviar.")
 
-    matrix = core.build_weekly_matrix(df_filtered)
-    if matrix.empty:
+    if df_filtered.empty:
         st.info("Sin datos para mostrar con los filtros aplicados.")
     else:
-        provider_cols = [c for c in matrix.columns if c not in ("Semana", "TOTAL SEMANAL", "ACUMULADO")]
-        def highlight_peaks(row):
-            styles = [""] * len(row)
-            if row["Semana"] == "TOTAL POR PROVEEDOR":
-                return ["font-weight: bold; background-color: #EFEFEF"] * len(row)
-            try:
-                if row["TOTAL SEMANAL"] > core.UMBRAL_PICO_EFECTIVO:
-                    idx = list(row.index).index("TOTAL SEMANAL")
-                    styles[idx] = "background-color:#FFC7CE; font-weight:bold;"
-            except Exception:
-                pass
-            return styles
-
-        styled = matrix.style.apply(highlight_peaks, axis=1).format(
-            {c: fmt_ars for c in provider_cols + ["TOTAL SEMANAL", "ACUMULADO"]}
+        # Obtener todas las semanas disponibles ordenadas
+        df_sorted_weeks = df_filtered.sort_values("lunes_semana")
+        semanas_ordenadas = (
+            df_sorted_weeks[["lunes_semana", "semana_etiqueta"]]
+            .drop_duplicates()
+            .dropna()
         )
-        st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
+
+        col_filtro_sem, col_btn_descarga = st.columns([2, 2])
+
+        with col_filtro_sem:
+            opciones_semanas = semanas_ordenadas["semana_etiqueta"].tolist()
+            # Selector de semana de inicio
+            semana_inicio_sel = st.selectbox(
+                "📅 Mostrar semanas desde:",
+                options=opciones_semanas,
+                index=0,
+                help="Ocultá semanas pasadas para enfocarte en las obligaciones vigentes y futuras.",
+            )
+
+        # Filtrar el DataFrame a partir del lunes de la semana seleccionada
+        lunes_corte = semanas_ordenadas.loc[
+            semanas_ordenadas["semana_etiqueta"] == semana_inicio_sel, "lunes_semana"
+        ].iloc[0]
+
+        df_matriz_periodo = df_filtered[df_filtered["lunes_semana"] >= lunes_corte]
+        matrix = core.build_weekly_matrix(df_matriz_periodo)
+
+        if matrix.empty:
+            st.info("No hay pagos para el período seleccionado.")
+        else:
+            # Función para exportar la matriz a un Excel .xlsx formateado profesionalmente
+            def export_matrix_to_excel(matrix_df: pd.DataFrame) -> bytes:
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Matriz Semanal"
+
+                ws["A1"] = f"MATRIZ SEMANAL DE FLUJO DE EFECTIVO — {sede_global.upper()}"
+                ws["A1"].font = Font(size=13, bold=True, color="1F4E78")
+                ws["A2"] = f"Período: Desde semana {semana_inicio_sel} · Generado el: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                ws["A2"].font = Font(size=9, italic=True, color="666666")
+
+                headers = list(matrix_df.columns)
+                h_row = 4
+                for c_idx, h in enumerate(headers, 1):
+                    cell = ws.cell(row=h_row, column=c_idx, value=h)
+                    cell.font = Font(bold=True, color="FFFFFF")
+                    cell.fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+
+                peak_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+                total_fill = PatternFill(start_color="EFEFEF", end_color="EFEFEF", fill_type="solid")
+
+                for r_idx, (_, row) in enumerate(matrix_df.iterrows()):
+                    row_num = h_row + 1 + r_idx
+                    is_total_row = (row.get("Semana") == "TOTAL POR PROVEEDOR")
+                    total_semanal = row.get("TOTAL SEMANAL", 0)
+                    is_peak = (not is_total_row and isinstance(total_semanal, (int, float)) and total_semanal > core.UMBRAL_PICO_EFECTIVO)
+
+                    for c_idx, h in enumerate(headers, 1):
+                        val = row[h]
+                        cell = ws.cell(row=row_num, column=c_idx)
+
+                        if is_total_row:
+                            cell.font = Font(bold=True)
+                            cell.fill = total_fill
+                        elif is_peak and h == "TOTAL SEMANAL":
+                            cell.font = Font(bold=True)
+                            cell.fill = peak_fill
+
+                        if h == "Semana":
+                            cell.value = str(val)
+                            cell.alignment = Alignment(horizontal="center")
+                        else:
+                            cell.value = float(val) if pd.notna(val) else 0.0
+                            cell.number_format = "$ #,##0"
+
+                for col in ws.columns:
+                    max_len = max(len(str(cell.value or "")) for cell in col)
+                    col_letter = get_column_letter(col[0].column)
+                    ws.column_dimensions[col_letter].width = max(max_len + 3, 14)
+
+                buf = BytesIO()
+                wb.save(buf)
+                return buf.getvalue()
+
+            with col_btn_descarga:
+                st.write("")  # Espaciado visual
+                st.write("")
+                excel_matriz = export_matrix_to_excel(matrix)
+                st.download_button(
+                    label="📥 Descargar Matriz en Excel (.xlsx)",
+                    data=excel_matriz,
+                    file_name=f"Matriz_Semanal_{sede_global}_{dt.date.today().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary",
+                    key="dl_matriz_excel",
+                )
+
+            st.markdown("---")
+
+            # Renderizado de la tabla en pantalla
+            provider_cols = [c for c in matrix.columns if c not in ("Semana", "TOTAL SEMANAL", "ACUMULADO")]
+            def highlight_peaks(row):
+                styles = [""] * len(row)
+                if row["Semana"] == "TOTAL POR PROVEEDOR":
+                    return ["font-weight: bold; background-color: #EFEFEF"] * len(row)
+                try:
+                    if row["TOTAL SEMANAL"] > core.UMBRAL_PICO_EFECTIVO:
+                        idx = list(row.index).index("TOTAL SEMANAL")
+                        styles[idx] = "background-color:#FFC7CE; font-weight:bold;"
+                except Exception:
+                    pass
+                return styles
+
+            styled = matrix.style.apply(highlight_peaks, axis=1).format(
+                {c: fmt_ars for c in provider_cols + ["TOTAL SEMANAL", "ACUMULADO"]}
+            )
+            st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
 # ---------------------------------------------------------------------------
 # TAB 3 — Control Detallado de Escaleras (CON BOTÓN DE EXCEL NATIVO)
