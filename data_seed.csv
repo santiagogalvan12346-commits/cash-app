@@ -1,52 +1,184 @@
-id,fecha,proveedor,proyecto,moneda,importe,tc,estado,obs
-EFC-001,2026-04-17,RODAS SERGIO,L2 TUC,ARS,6500000,1,Programado,
-EFC-002,2026-04-30,RODAS SERGIO,L2 TUC,ARS,6500000,1,Programado,
-EFC-003,2026-05-15,RODAS SERGIO,L2 TUC,ARS,6000000,1,Programado,
-EFC-004,2026-05-29,RODAS SERGIO,L2 TUC,ARS,6000000,1,Programado,
-EFC-005,2026-06-12,RODAS SERGIO,L2 TUC,ARS,5500000,1,Programado,
-EFC-006,2026-06-26,RODAS SERGIO,L2 TUC,ARS,5500000,1,Programado,
-EFC-007,2026-06-26,RAZURI,L2 TUC,ARS,1000000,1,Programado,Tramo 1
-EFC-008,2026-07-03,RODA TS,L2 TUC,ARS,1700000,1,Programado,
-EFC-009,2026-07-10,RODAS SERGIO,L2 TUC,ARS,5500000,1,Programado,
-EFC-010,2026-07-24,RODAS SERGIO,L2 TUC,ARS,5995000,1,Programado,
-EFC-011,2026-07-24,RAZURI,L2 TUC,ARS,1000000,1,Programado,Tramo 1
-EFC-012,2026-07-31,RAZURI,L2 TUC,ARS,1000000,1,Programado,Tramo 2
-EFC-013,2026-08-07,RODAS SERGIO,L2 TUC,ARS,5500000,1,Programado,
-EFC-014,2026-08-07,RODA TS,L2 TUC,ARS,1650000,1,Programado,
-EFC-015,2026-08-14,RAZURI,L2 TUC,ARS,1000000,1,Programado,Tramo 2
-EFC-016,2026-08-21,RODAS SERGIO,L2 TUC,ARS,6000000,1,Programado,
-EFC-017,2026-08-21,RAZURI,L2 TUC,ARS,950000,1,Programado,Tramo 1
-EFC-018,2026-08-28,RAZURI,L2 TUC,ARS,1000000,1,Programado,Tramo 2
-EFC-019,2026-09-04,RODAS SERGIO,L2 TUC,ARS,9669500,1,Programado,
-EFC-020,2026-09-04,RODA TS,L2 TUC,ARS,1650000,1,Programado,
-EFC-021,2026-09-04,ANDRADA JORGE,L2 TUC (TEC SYNER),USD,1346.8,1485,Programado,Equiv USD total 9.200
-EFC-022,2026-09-11,RAZURI,L2 TUC,ARS,950000,1,Programado,Tramo 2
-EFC-023,2026-09-18,RODAS SERGIO,L2 TUC,ARS,10169500,1,Programado,
-EFC-024,2026-09-18,ANDRADA JORGE,L2 TUC (TEC SYNER),USD,1346.8,1485,Programado,Equiv USD total 9.200
-EFC-025,2026-10-02,RODAS SERGIO,L2 TUC,ARS,10232000,1,Programado,
-EFC-026,2026-10-02,ANDRADA JORGE,L2 TUC (TEC SYNER),USD,1346.8,1485,Programado,Equiv USD total 9.200
-EFC-027,2026-10-09,BARRIONUEVO,L2 TUC,ARS,5000000,1,Programado,
-EFC-028,2026-10-16,RODAS SERGIO,L2 TUC,ARS,3669500,1,Programado,
-EFC-029,2026-10-16,BARRIONUEVO,L2 TUC,ARS,5000000,1,Programado,
-EFC-030,2026-10-16,ANDRADA JORGE,L2 TUC (TEC SYNER),USD,1346.8,1485,Programado,Equiv USD total 9.200
-EFC-031,2026-10-23,BARRIONUEVO,L2 TUC,ARS,5000000,1,Programado,
-EFC-032,2026-10-30,RODAS SERGIO,L2 TUC,ARS,3697500,1,Programado,
-EFC-033,2026-10-30,BARRIONUEVO,L2 TUC,ARS,5000000,1,Programado,
-EFC-034,2026-10-30,ANDRADA JORGE,L2 TUC (TEC SYNER),USD,1346.8,1485,Programado,Equiv USD total 9.200
-EFC-035,2026-11-06,BARRIONUEVO,L2 TUC,ARS,5000000,1,Programado,
-EFC-036,2026-11-13,RODAS SERGIO,L2 TUC,ARS,3697500,1,Programado,
-EFC-037,2026-11-13,BARRIONUEVO,L2 TUC,ARS,5000000,1,Programado,
-EFC-038,2026-11-13,ANDRADA JORGE,L2 TUC (TEC SYNER),USD,1346.8,1485,Programado,Equiv USD total 9.200
-EFC-039,2026-11-20,BARRIONUEVO,L2 TUC,ARS,5000000,1,Programado,
-EFC-040,2026-11-27,RODAS SERGIO,L2 TUC,ARS,3619500,1,Programado,
-EFC-041,2026-11-27,BARRIONUEVO,L2 TUC,ARS,5000000,1,Programado,
-EFC-042,2026-11-27,ANDRADA JORGE,L2 TUC (TEC SYNER),USD,1119.19,1485,Programado,Equiv USD total 9.200
-EFC-043,2026-12-04,BARRIONUEVO,L2 TUC,ARS,7500000,1,Programado,
-EFC-044,2026-12-11,RODAS SERGIO,L2 TUC,ARS,1597500,1,Programado,
-EFC-045,2026-12-11,BARRIONUEVO,L2 TUC,ARS,7500000,1,Programado,
-EFC-046,2026-12-18,BARRIONUEVO,L2 TUC,ARS,7500000,1,Programado,
-EFC-047,2026-12-23,BARRIONUEVO,L2 TUC,ARS,7500000,1,Programado,
-EFC-048,2026-12-30,BARRIONUEVO,L2 TUC,ARS,7500000,1,Programado,
-EFC-049,2027-01-08,BARRIONUEVO,L2 TUC,ARS,7500000,1,Programado,
-EFC-050,2027-01-15,BARRIONUEVO,L2 TUC,ARS,7500000,1,Programado,
-EFC-051,2027-01-22,BARRIONUEVO,L2 TUC,ARS,7928000,1,Programado,
+id,tesoreria,fecha,proveedor,proyecto,concepto,moneda,importe,tc,estado,obs
+BA-001,Buenos Aires,2026-04-10,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-002,Buenos Aires,2026-04-24,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-003,Buenos Aires,2026-05-08,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-026,Buenos Aires,2026-05-08,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-027,Buenos Aires,2026-05-15,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-004,Buenos Aires,2026-05-22,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-028,Buenos Aires,2026-05-22,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-029,Buenos Aires,2026-05-29,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-005,Buenos Aires,2026-06-05,PSI,L2 BA,Escalera 1 (import. BA),ARS,5000000.0,1.0,Programado,
+BA-030,Buenos Aires,2026-06-05,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-031,Buenos Aires,2026-06-12,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-006,Buenos Aires,2026-06-19,PSI,L2 BA,Escalera 1 (import. BA),ARS,5000000.0,1.0,Programado,
+BA-032,Buenos Aires,2026-06-19,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-033,Buenos Aires,2026-06-26,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-007,Buenos Aires,2026-07-03,PSI,L2 BA,Escalera 1 (import. BA),ARS,5000000.0,1.0,Programado,
+BA-034,Buenos Aires,2026-07-03,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-035,Buenos Aires,2026-07-10,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-036,Buenos Aires,2026-07-17,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1055000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-037,Buenos Aires,2026-07-24,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4051000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-100,Buenos Aires,2026-07-24,ACOSTA ADRIAN,L2 BA,Escalera 1 (import. BA),ARS,870000.0,1.0,Programado,
+BA-008,Buenos Aires,2026-07-31,PSI,L2 BA,Escalera 1 (import. BA),ARS,5000000.0,1.0,Programado,
+BA-038,Buenos Aires,2026-07-31,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1300000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-039,Buenos Aires,2026-08-07,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-080,Buenos Aires,2026-08-07,M&S INGENIERIA,L2 BA,Escalera 1 (import. BA),ARS,1000000.0,1.0,Programado,
+BA-101,Buenos Aires,2026-08-07,ACOSTA ADRIAN,L2 BA,Escalera 1 (import. BA),ARS,850000.0,1.0,Programado,
+BA-009,Buenos Aires,2026-08-14,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-040,Buenos Aires,2026-08-14,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1300000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-041,Buenos Aires,2026-08-21,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-081,Buenos Aires,2026-08-21,M&S INGENIERIA,L2 BA,Escalera 1 (import. BA),ARS,1500000.0,1.0,Programado,
+BA-010,Buenos Aires,2026-08-28,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-042,Buenos Aires,2026-08-28,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1300000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-120,Buenos Aires,2026-08-28,ING. DE SANTIS,L2 BA,Escalera 1 (import. BA),ARS,500000.0,1.0,Programado,
+BA-043,Buenos Aires,2026-09-04,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-064,Buenos Aires,2026-09-04,CEARG,L2 BA,Escalera 1 (import. BA),ARS,2159500.0,1.0,Programado,Ref. TC planilla: 1465 | Ref. contrato USD: 8300
+BA-082,Buenos Aires,2026-09-04,M&S INGENIERIA,L2 BA,Escalera 1 (import. BA),ARS,5000000.0,1.0,Programado,
+BA-091,Buenos Aires,2026-09-04,RAMAC,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 8669.5
+BA-102,Buenos Aires,2026-09-04,ACOSTA ADRIAN,L2 BA,Escalera 1 (import. BA),ARS,1250000.0,1.0,Programado,
+BAW-004,Buenos Aires,2026-09-07,MITRAL,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,2000000.0,1.0,Programado,Semana 07-11 Sep
+BA-011,Buenos Aires,2026-09-11,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-044,Buenos Aires,2026-09-11,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,1300000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-121,Buenos Aires,2026-09-11,ING. DE SANTIS,L2 BA,Escalera 1 (import. BA),ARS,500000.0,1.0,Programado,
+BAW-010,Buenos Aires,2026-09-14,MITRAL,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,2000000.0,1.0,Programado,Semana 14-18 Sep
+BA-045,Buenos Aires,2026-09-18,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-065,Buenos Aires,2026-09-18,CEARG,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1465 | Ref. contrato USD: 8300
+BA-083,Buenos Aires,2026-09-18,M&S INGENIERIA,L2 BA,Escalera 1 (import. BA),ARS,4800000.0,1.0,Programado,
+BA-092,Buenos Aires,2026-09-18,RAMAC,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 8669.5
+BA-103,Buenos Aires,2026-09-18,ACOSTA ADRIAN,L2 BA,Escalera 1 (import. BA),ARS,1250000.0,1.0,Programado,
+BAW-013,Buenos Aires,2026-09-21,MITRAL,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,3914440.0,1.0,Programado,Semana 21-25 Sep
+BA-012,Buenos Aires,2026-09-25,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-046,Buenos Aires,2026-09-25,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,5286800.0,1.0,Programado,Ref. TC planilla: 1400
+BA-066,Buenos Aires,2026-10-02,CEARG,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1465 | Ref. contrato USD: 8300
+BA-084,Buenos Aires,2026-10-02,M&S INGENIERIA,L2 BA,Escalera 1 (import. BA),ARS,4800000.0,1.0,Programado,
+BA-093,Buenos Aires,2026-10-02,RAMAC,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 8669.5
+BA-104,Buenos Aires,2026-10-02,ACOSTA ADRIAN,L2 BA,Escalera 1 (import. BA),ARS,1250000.0,1.0,Programado,
+BA-122,Buenos Aires,2026-10-02,ING. DE SANTIS,L2 BA,Escalera 1 (import. BA),ARS,500000.0,1.0,Programado,
+BAW-020,Buenos Aires,2026-10-05,BARRIONUEVO,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,5000000.0,1.0,Programado,Semana 05-09 Oct
+BA-013,Buenos Aires,2026-10-09,PSI,L2 BA,Escalera 1 (import. BA),ARS,7000000.0,1.0,Programado,
+BA-047,Buenos Aires,2026-10-09,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-105,Buenos Aires,2026-10-09,ACOSTA ADRIAN,L2 BA,Escalera 1 (import. BA),ARS,1250000.0,1.0,Programado,
+BAW-025,Buenos Aires,2026-10-12,BARRIONUEVO,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,5000000.0,1.0,Programado,Semana 12-16 Oct
+BA-067,Buenos Aires,2026-10-16,CEARG,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1465 | Ref. contrato USD: 8300
+BA-085,Buenos Aires,2026-10-16,M&S INGENIERIA,L2 BA,Escalera 1 (import. BA),ARS,4800000.0,1.0,Programado,
+BA-088,Buenos Aires,2026-10-16,COLLAZO,L2 BA,Escalera 1 (import. BA),ARS,1650000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 3250
+BA-094,Buenos Aires,2026-10-16,RAMAC,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 8669.5
+BA-106,Buenos Aires,2026-10-16,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-014,Buenos Aires,2026-10-23,PSI,L2 BA,Escalera 1 (import. BA),ARS,7000000.0,1.0,Programado,
+BA-048,Buenos Aires,2026-10-23,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3500000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-107,Buenos Aires,2026-10-23,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BAW-034,Buenos Aires,2026-10-26,BARRIONUEVO,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,5000000.0,1.0,Programado,Semana 26-30 Oct
+BA-068,Buenos Aires,2026-10-30,CEARG,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1465 | Ref. contrato USD: 8300
+BA-089,Buenos Aires,2026-10-30,COLLAZO,L2 BA,Escalera 1 (import. BA),ARS,1650000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 3250
+BA-095,Buenos Aires,2026-10-30,RAMAC,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 8669.5
+BA-108,Buenos Aires,2026-10-30,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-015,Buenos Aires,2026-11-06,PSI,L2 BA,Escalera 1 (import. BA),ARS,7000000.0,1.0,Programado,
+BA-049,Buenos Aires,2026-11-06,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-086,Buenos Aires,2026-11-06,M&S INGENIERIA,L2 BA,Escalera 1 (import. BA),ARS,4800000.0,1.0,Programado,
+BA-109,Buenos Aires,2026-11-06,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BAW-043,Buenos Aires,2026-11-09,BARRIONUEVO,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,5000000.0,1.0,Programado,Semana 09-13 Nov
+BA-069,Buenos Aires,2026-11-13,CEARG,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1465 | Ref. contrato USD: 8300
+BA-090,Buenos Aires,2026-11-13,COLLAZO,L2 BA,Escalera 1 (import. BA),ARS,1640000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 3250
+BA-096,Buenos Aires,2026-11-13,RAMAC,L2 BA,Escalera 1 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 8669.5
+BA-110,Buenos Aires,2026-11-13,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-016,Buenos Aires,2026-11-20,PSI,L2 BA,Escalera 1 (import. BA),ARS,7000000.0,1.0,Programado,
+BA-050,Buenos Aires,2026-11-20,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-087,Buenos Aires,2026-11-20,M&S INGENIERIA,L2 BA,Escalera 1 (import. BA),ARS,4870000.0,1.0,Programado,
+BA-111,Buenos Aires,2026-11-20,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BAW-052,Buenos Aires,2026-11-23,BARRIONUEVO,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,5000000.0,1.0,Programado,Semana 23-27 Nov
+BA-070,Buenos Aires,2026-11-27,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-097,Buenos Aires,2026-11-27,RAMAC,L2 BA,Escalera 1 (import. BA),ARS,1177640.0,1.0,Programado,Ref. TC planilla: 1520 | Ref. contrato USD: 8669.5
+BA-098,Buenos Aires,2026-11-27,RAMAC,L2 BA,Escalera 2 (import. BA),ARS,2159500.0,1.0,Programado,Ref. TC planilla: 1535 | Ref. contrato USD: 3061.5
+BA-112,Buenos Aires,2026-11-27,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-017,Buenos Aires,2026-12-04,PSI,L2 BA,Escalera 1 (import. BA),ARS,7500000.0,1.0,Programado,
+BA-051,Buenos Aires,2026-12-04,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-071,Buenos Aires,2026-12-04,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-113,Buenos Aires,2026-12-04,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BAW-060,Buenos Aires,2026-12-07,BARRIONUEVO,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,5000000.0,1.0,Programado,Semana 07-11 Dic
+BA-072,Buenos Aires,2026-12-11,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-099,Buenos Aires,2026-12-11,RAMAC,L2 BA,Escalera 2 (import. BA),ARS,2000000.0,1.0,Programado,Ref. TC planilla: 1535 | Ref. contrato USD: 3061.5
+BA-114,Buenos Aires,2026-12-11,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-018,Buenos Aires,2026-12-18,PSI,L2 BA,Escalera 1 (import. BA),ARS,7500000.0,1.0,Programado,
+BA-052,Buenos Aires,2026-12-18,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-073,Buenos Aires,2026-12-18,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-115,Buenos Aires,2026-12-18,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BAW-067,Buenos Aires,2026-12-21,BARRIONUEVO,L2 BA,"Consolidado semanal (reporte, sin desglose)",ARS,5000000.0,1.0,Programado,Semana 21-25 Dic
+BA-074,Buenos Aires,2026-12-25,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-116,Buenos Aires,2026-12-25,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-019,Buenos Aires,2027-01-01,PSI,L2 BA,Escalera 1 (import. BA),ARS,7500000.0,1.0,Programado,
+BA-053,Buenos Aires,2027-01-01,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,5000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-075,Buenos Aires,2027-01-01,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-117,Buenos Aires,2027-01-01,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-076,Buenos Aires,2027-01-08,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-118,Buenos Aires,2027-01-08,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,6500000.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-020,Buenos Aires,2027-01-15,PSI,L2 BA,Escalera 1 (import. BA),ARS,7500000.0,1.0,Programado,
+BA-054,Buenos Aires,2027-01-15,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,5000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-077,Buenos Aires,2027-01-15,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-119,Buenos Aires,2027-01-15,CARBALLO SANTIAGO,L2 BA,Escalera 1 (import. BA),ARS,5420500.0,1.0,Programado,L2 - 50% | Ref. TC planilla: 1510 | Ref. contrato USD: 59550
+BA-078,Buenos Aires,2027-01-22,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1500000.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-021,Buenos Aires,2027-01-29,PSI,L2 BA,Escalera 1 (import. BA),ARS,7500000.0,1.0,Programado,
+BA-055,Buenos Aires,2027-01-29,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-079,Buenos Aires,2027-01-29,CEARG,L2 BA,Escalera 2 (import. BA),ARS,1233900.0,1.0,Programado,Ref. TC planilla: 1530 | Ref. contrato USD: 9630
+BA-022,Buenos Aires,2027-02-12,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-056,Buenos Aires,2027-02-12,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-023,Buenos Aires,2027-02-19,PSI,L2 BA,Escalera 1 (import. BA),ARS,5500000.0,1.0,Programado,
+BA-024,Buenos Aires,2027-02-26,PSI,L2 BA,Escalera 1 (import. BA),ARS,7266200.0,1.0,Programado,
+BA-057,Buenos Aires,2027-02-26,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-025,Buenos Aires,2027-03-05,PSI,L2 BA,Escalera 1 (import. BA),ARS,5000000.0,1.0,Programado,
+BA-058,Buenos Aires,2027-03-12,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,4000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-059,Buenos Aires,2027-03-26,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3500000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-060,Buenos Aires,2027-04-09,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3500000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-061,Buenos Aires,2027-04-23,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-062,Buenos Aires,2027-05-07,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,3000000.0,1.0,Programado,Ref. TC planilla: 1400
+BA-063,Buenos Aires,2027-05-21,SCHMIDT,L2 BA,Escalera 1 (import. BA),ARS,2911000.0,1.0,Programado,Ref. TC planilla: 1400
+EFC-001,Tucumán,2026-04-17,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,6500000.0,1.0,Programado,
+EFC-002,Tucumán,2026-04-30,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,6500000.0,1.0,Programado,
+EFC-003,Tucumán,2026-05-15,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,6000000.0,1.0,Programado,
+EFC-004,Tucumán,2026-05-29,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,6000000.0,1.0,Programado,
+EFC-005,Tucumán,2026-06-12,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,5500000.0,1.0,Programado,
+EFC-006,Tucumán,2026-06-26,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,5500000.0,1.0,Programado,
+EFC-007,Tucumán,2026-06-26,RAZURI,L2 TUC,Tramo 1,ARS,1000000.0,1.0,Programado,Tramo 1
+EFC-008,Tucumán,2026-07-03,RODA TS,L2 TUC,Obra L2 Tucumán,ARS,1700000.0,1.0,Programado,
+EFC-009,Tucumán,2026-07-10,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,5500000.0,1.0,Programado,
+EFC-010,Tucumán,2026-07-24,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,5995000.0,1.0,Programado,
+EFC-011,Tucumán,2026-07-24,RAZURI,L2 TUC,Tramo 1,ARS,1000000.0,1.0,Programado,Tramo 1
+EFC-012,Tucumán,2026-07-31,RAZURI,L2 TUC,Tramo 2,ARS,1000000.0,1.0,Programado,Tramo 2
+EFC-013,Tucumán,2026-08-07,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,5500000.0,1.0,Programado,
+EFC-014,Tucumán,2026-08-07,RODA TS,L2 TUC,Obra L2 Tucumán,ARS,1650000.0,1.0,Programado,
+EFC-015,Tucumán,2026-08-14,RAZURI,L2 TUC,Tramo 2,ARS,1000000.0,1.0,Programado,Tramo 2
+EFC-016,Tucumán,2026-08-21,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,6000000.0,1.0,Programado,
+EFC-017,Tucumán,2026-08-21,RAZURI,L2 TUC,Tramo 1,ARS,950000.0,1.0,Programado,Tramo 1
+EFC-018,Tucumán,2026-08-28,RAZURI,L2 TUC,Tramo 2,ARS,1000000.0,1.0,Programado,Tramo 2
+EFC-019,Tucumán,2026-09-04,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,9669500.0,1.0,Programado,
+EFC-020,Tucumán,2026-09-04,RODA TS,L2 TUC,Obra L2 Tucumán,ARS,1650000.0,1.0,Programado,
+EFC-021,Tucumán,2026-09-04,ANDRADA JORGE,L2 TUC (TEC SYNER),Obra L2 Tucumán,USD,1346.8,1485.0,Programado,Equiv USD total 9.200
+EFC-022,Tucumán,2026-09-11,RAZURI,L2 TUC,Tramo 2,ARS,950000.0,1.0,Programado,Tramo 2
+EFC-023,Tucumán,2026-09-18,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,10169500.0,1.0,Programado,
+EFC-024,Tucumán,2026-09-18,ANDRADA JORGE,L2 TUC (TEC SYNER),Obra L2 Tucumán,USD,1346.8,1485.0,Programado,Equiv USD total 9.200
+EFC-025,Tucumán,2026-10-02,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,10232000.0,1.0,Programado,
+EFC-026,Tucumán,2026-10-02,ANDRADA JORGE,L2 TUC (TEC SYNER),Obra L2 Tucumán,USD,1346.8,1485.0,Programado,Equiv USD total 9.200
+EFC-027,Tucumán,2026-10-09,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,5000000.0,1.0,Programado,
+EFC-028,Tucumán,2026-10-16,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,3669500.0,1.0,Programado,
+EFC-029,Tucumán,2026-10-16,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,5000000.0,1.0,Programado,
+EFC-030,Tucumán,2026-10-16,ANDRADA JORGE,L2 TUC (TEC SYNER),Obra L2 Tucumán,USD,1346.8,1485.0,Programado,Equiv USD total 9.200
+EFC-031,Tucumán,2026-10-23,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,5000000.0,1.0,Programado,
+EFC-032,Tucumán,2026-10-30,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,3697500.0,1.0,Programado,
+EFC-033,Tucumán,2026-10-30,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,5000000.0,1.0,Programado,
+EFC-034,Tucumán,2026-10-30,ANDRADA JORGE,L2 TUC (TEC SYNER),Obra L2 Tucumán,USD,1346.8,1485.0,Programado,Equiv USD total 9.200
+EFC-035,Tucumán,2026-11-06,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,5000000.0,1.0,Programado,
+EFC-036,Tucumán,2026-11-13,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,3697500.0,1.0,Programado,
+EFC-037,Tucumán,2026-11-13,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,5000000.0,1.0,Programado,
+EFC-038,Tucumán,2026-11-13,ANDRADA JORGE,L2 TUC (TEC SYNER),Obra L2 Tucumán,USD,1346.8,1485.0,Programado,Equiv USD total 9.200
+EFC-039,Tucumán,2026-11-20,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,5000000.0,1.0,Programado,
+EFC-040,Tucumán,2026-11-27,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,3619500.0,1.0,Programado,
+EFC-041,Tucumán,2026-11-27,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,5000000.0,1.0,Programado,
+EFC-042,Tucumán,2026-11-27,ANDRADA JORGE,L2 TUC (TEC SYNER),Obra L2 Tucumán,USD,1119.19,1485.0,Programado,Equiv USD total 9.200
+EFC-043,Tucumán,2026-12-04,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,7500000.0,1.0,Programado,
+EFC-044,Tucumán,2026-12-11,RODAS SERGIO,L2 TUC,Obra L2 Tucumán,ARS,1597500.0,1.0,Programado,
+EFC-045,Tucumán,2026-12-11,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,7500000.0,1.0,Programado,
+EFC-046,Tucumán,2026-12-18,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,7500000.0,1.0,Programado,
+EFC-047,Tucumán,2026-12-23,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,7500000.0,1.0,Programado,
+EFC-048,Tucumán,2026-12-30,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,7500000.0,1.0,Programado,
+EFC-049,Tucumán,2027-01-08,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,7500000.0,1.0,Programado,
+EFC-050,Tucumán,2027-01-15,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,7500000.0,1.0,Programado,
+EFC-051,Tucumán,2027-01-22,BARRIONUEVO,L2 TUC,Obra L2 Tucumán,ARS,7928000.0,1.0,Programado,
