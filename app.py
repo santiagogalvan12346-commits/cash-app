@@ -2,7 +2,7 @@
 """
 Sistema de Gestión de Efectivo — Multisede (Tucumán / Buenos Aires)
 ====================================================================
-Versión con Control Integral de Escaleras, Conciliador Rápido
+Versión Optimizada: Detalle de Escaleras Limpio, Conciliador Rápido
 y Asistente de Proyección Masiva.
 """
 
@@ -141,7 +141,7 @@ st.sidebar.divider()
 st.sidebar.caption(f"Sede: **{sede_global}** · Pagos: **{len(df_filtered)}** / {len(df_all_raw)}")
 
 # ---------------------------------------------------------------------------
-# Encabezado principal y Pestañas
+# Pestañas Principales
 # ---------------------------------------------------------------------------
 
 st.title("💵 Sistema de Gestión de Efectivo")
@@ -217,7 +217,7 @@ with tab_kpi:
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------------------------
-# TAB 2 — Matriz Semanal Consolidada
+# TAB 2 — Matriz Semanal Consolidada (CONSERVA COLUMNA SEMANA)
 # ---------------------------------------------------------------------------
 with tab_matriz:
     st.subheader("Matriz Semanal de Flujo de Efectivo (Consolidada)")
@@ -243,14 +243,14 @@ with tab_matriz:
         styled = matrix.style.apply(highlight_peaks, axis=1).format(
             {c: fmt_ars for c in provider_cols + ["TOTAL SEMANAL", "ACUMULADO"]}
         )
-        st.dataframe(styled, use_container_width=True, height=520)
+        st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
 # ---------------------------------------------------------------------------
-# TAB 3 — Control Detallado de Escaleras por Proveedor
+# TAB 3 — Control Detallado de Escaleras (ORDEN Y COLUMNAS AJUSTADAS)
 # ---------------------------------------------------------------------------
 with tab_escaleras:
     st.subheader("🪜 Control Individual de Escaleras y Presupuestos")
-    st.caption("Inspeccioná cada contrato, tramo y cronograma vertical por proveedor.")
+    st.caption("Inspeccioná cada contrato y cuota de forma vertical sin datos innecesarios.")
 
     prov_list = sorted(df_filtered["proveedor"].dropna().unique().tolist())
     if not prov_list:
@@ -275,61 +275,75 @@ with tab_escaleras:
 
         st.divider()
 
+        def merge_concepto_obs(r):
+            c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) else ""
+            o = str(r["obs"]).strip() if pd.notna(r["obs"]) else ""
+            if c and o:
+                return f"{c} ({o})" if c != o else c
+            return c or o or "Presupuesto Único"
+
+        df_p["presupuesto_obs"] = df_p.apply(merge_concepto_obs, axis=1)
         df_p["concepto_clean"] = df_p["concepto"].fillna("").str.strip()
         conceptos = sorted([c for c in df_p["concepto_clean"].unique().tolist() if c])
         if not conceptos:
             conceptos = ["General / Único Presupuesto"]
             df_p["concepto_clean"] = "General / Único Presupuesto"
 
+        def format_ladder_table(sub_df: pd.DataFrame) -> pd.DataFrame:
+            t = sub_df.sort_values("fecha").copy()
+            res = pd.DataFrame({
+                "Fecha Vto.": t["fecha"],
+                "Presupuesto / Observaciones": t["presupuesto_obs"],
+                "Importe Pactado": t["importe"],
+                "TC": t["tc"],
+                "Importe ARS": t["importe_ars"],
+                "Estado": t["estado"],
+                "Moneda": t["moneda"],
+            })
+            return res
+
         if len(conceptos) > 1:
             st.markdown(f"##### Se detectaron **{len(conceptos)} escaleras/presupuestos** en simultáneo:")
             esc_tabs = st.tabs([f"📌 {c}" for c in conceptos] + ["📑 Todas las Escaleras Consolidadas"])
             for idx, c_name in enumerate(conceptos):
                 with esc_tabs[idx]:
-                    sub_esc = df_p[df_p["concepto_clean"] == c_name].sort_values("fecha")
+                    sub_esc = df_p[df_p["concepto_clean"] == c_name]
                     sub_kpis = core.compute_kpis(sub_esc)
                     e1, e2, e3 = st.columns(3)
                     e1.write(f"**Total Contrato:** {fmt_ars(sub_kpis.total_comprometido)}")
                     e2.write(f"**Pagado:** {fmt_ars(sub_kpis.total_pagado)}")
                     e3.write(f"**Saldo:** {fmt_ars(sub_kpis.saldo_pendiente)}")
 
-                    show_esc = sub_esc[["id", "fecha", "semana_etiqueta", "moneda", "importe", "tc", "importe_ars", "estado", "obs"]].rename(columns={
-                        "id": "ID", "fecha": "Fecha Vto.", "semana_etiqueta": "Semana",
-                        "moneda": "Moneda", "importe": "Importe Pactado", "tc": "TC",
-                        "importe_ars": "Importe ARS", "estado": "Estado", "obs": "Observaciones/Tramo"
-                    })
+                    table_view = format_ladder_table(sub_esc)
                     st.dataframe(
-                        show_esc.style.format({
+                        table_view.style.format({
                             "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
                             "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
                         }),
                         use_container_width=True,
+                        hide_index=True,
                     )
             with esc_tabs[-1]:
-                show_all = df_p[["id", "fecha", "semana_etiqueta", "concepto", "moneda", "importe", "tc", "importe_ars", "estado", "obs"]].sort_values("fecha").rename(columns={
-                    "id": "ID", "fecha": "Fecha Vto.", "semana_etiqueta": "Semana", "concepto": "Contrato/Presupuesto",
-                    "moneda": "Moneda", "importe": "Importe Pactado", "tc": "TC",
-                    "importe_ars": "Importe ARS", "estado": "Estado", "obs": "Observaciones"
-                })
+                all_view = format_ladder_table(df_p)
                 st.dataframe(
-                    show_all.style.format({
+                    all_view.style.format({
                         "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
                         "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
                     }),
-                    use_container_width=True, height=360,
+                    use_container_width=True,
+                    height=380,
+                    hide_index=True,
                 )
         else:
-            show_single = df_p[["id", "fecha", "semana_etiqueta", "concepto", "moneda", "importe", "tc", "importe_ars", "estado", "obs"]].sort_values("fecha").rename(columns={
-                "id": "ID", "fecha": "Fecha Vto.", "semana_etiqueta": "Semana", "concepto": "Contrato/Presupuesto",
-                "moneda": "Moneda", "importe": "Importe Pactado", "tc": "TC",
-                "importe_ars": "Importe ARS", "estado": "Estado", "obs": "Observaciones"
-            })
+            single_view = format_ladder_table(df_p)
             st.dataframe(
-                show_single.style.format({
+                single_view.style.format({
                     "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
                     "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
                 }),
-                use_container_width=True, height=360,
+                use_container_width=True,
+                height=380,
+                hide_index=True,
             )
 
 # ---------------------------------------------------------------------------
@@ -337,7 +351,7 @@ with tab_escaleras:
 # ---------------------------------------------------------------------------
 with tab_conciliar:
     st.subheader("⚡ Conciliador Rápido de Pagos")
-    st.caption("Cambiá el estado de los desembolsos de 'Programado' a 'Pagado' en un solo paso.")
+    st.caption("Cambiá el estado de los desembolsos de 'Pendiente' a 'Pagado' en un solo paso.")
 
     df_prog = df_filtered[df_filtered["estado"] != "Pagado"].sort_values("fecha").copy()
     if df_prog.empty:
@@ -354,17 +368,15 @@ with tab_conciliar:
             column_config={
                 "Conciliar (Marcar Pagado)": st.column_config.CheckboxColumn(
                     "¿Pagar?",
-                    help="Tildá los pagos que se acaban de liquidar",
+                    help="Tildá los pagos liquidados",
                     default=False,
                 ),
-                "importe_ars": st.column_config.NumberColumn(
-                    "Importe ARS",
-                    format="$ %d",
-                ),
+                "importe_ars": st.column_config.NumberColumn("Importe ARS", format="$ %d"),
                 "fecha": st.column_config.DateColumn("Fecha Vencimiento", format="DD/MM/YYYY"),
             },
             disabled=["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado", "obs"],
             use_container_width=True,
+            hide_index=True,
             height=380,
             key="conciliar_editor",
         )
@@ -406,8 +418,8 @@ with tab_asistente:
 
         with col_g2:
             g_proyecto = st.text_input("Proyecto / Obra", value="L2 TUC" if g_tesoreria == "Tucumán" else "L2 BA")
-            g_concepto = st.text_input("Concepto / Trabajo / N° Presupuesto", placeholder="Ej: Obra Galpón - Tramo 1")
-            g_obs = st.text_input("Observación adicional", placeholder="Ej: Pago con cheques diferidos / Efectivo")
+            g_concepto = st.text_input("Presupuesto / Observaciones", placeholder="Ej: Obra Galpón - Tramo 1")
+            g_obs = st.text_input("Nota adicional (opcional)", placeholder="Ej: Efectivo / Cheque")
 
         with col_g3:
             g_moneda = st.selectbox("Moneda del Acuerdo", core.MONEDAS_VALIDAS)
@@ -429,7 +441,7 @@ with tab_asistente:
 
         if btn_generar:
             if not g_proveedor or not g_concepto:
-                st.error("Por favor completá el Proveedor y el Concepto/Presupuesto del acuerdo.")
+                st.error("Por favor completá el Proveedor y el Presupuesto / Observaciones.")
             else:
                 df_curr = get_df()
                 new_ladder = core.generate_payment_ladder(
@@ -497,7 +509,7 @@ with tab_abm:
                 ).strip().upper()
 
             proyecto = st.text_input("Proyecto", value=record["proyecto"] if record is not None else "L2")
-            concepto = st.text_input("Concepto / Presupuesto", value=record["concepto"] if record is not None else "")
+            concepto = st.text_input("Presupuesto / Observaciones", value=record["concepto"] if record is not None else "")
 
             c_mon, c_tc = st.columns(2)
             moneda = c_mon.selectbox("Moneda", core.MONEDAS_VALIDAS, index=core.MONEDAS_VALIDAS.index(record["moneda"]) if record is not None else 0)
@@ -505,7 +517,7 @@ with tab_abm:
 
             importe = st.number_input("Importe", min_value=0.0, value=float(record["importe"]) if record is not None else 0.0, step=50000.0)
             estado = st.selectbox("Estado", core.ESTADOS_VALIDOS, index=core.ESTADOS_VALIDOS.index(record["estado"]) if record is not None else 0)
-            obs = st.text_area("Observaciones", value=record["obs"] if record is not None else "")
+            obs = st.text_area("Notas internas", value=record["obs"] if record is not None else "")
 
             b1, b2 = st.columns(2)
             sub = b1.form_submit_button("💾 Guardar", type="primary", use_container_width=True)
@@ -544,15 +556,15 @@ with tab_abm:
 
     with col_table:
         st.markdown("##### Listado de Pagos")
-        disp = df_filtered[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado", "obs"]].rename(columns={
+        disp = df_filtered[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado"]].rename(columns={
             "id": "ID", "tesoreria": "Sede", "fecha": "Fecha", "proveedor": "Proveedor",
-            "concepto": "Concepto", "importe_ars": "Importe ARS", "estado": "Estado", "obs": "Obs",
+            "concepto": "Presupuesto / Observaciones", "importe_ars": "Importe ARS", "estado": "Estado",
         }).sort_values("Fecha")
 
         st.dataframe(disp.style.format({
             "Fecha": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
             "Importe ARS": fmt_ars,
-        }), use_container_width=True, height=360)
+        }), use_container_width=True, height=360, hide_index=True)
 
         ids_disp = disp["ID"].tolist()
         if ids_disp:
