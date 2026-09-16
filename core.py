@@ -861,3 +861,77 @@ def export_to_excel(df: pd.DataFrame) -> bytes:
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()
+# ---------------------------------------------------------------------------
+# Asistente y utilidades de escaleras de pago y conciliación rápida
+# ---------------------------------------------------------------------------
+
+def update_payments_status(df: pd.DataFrame, payment_ids: list[str], new_status: str = "Pagado") -> pd.DataFrame:
+    """Actualiza en lote el estado de una lista de IDs de pago."""
+    df = df.copy()
+    mask = df["id"].isin(payment_ids)
+    df.loc[mask, "estado"] = new_status
+    return df
+
+
+def generate_payment_ladder(
+    df_existing: pd.DataFrame,
+    tesoreria: str,
+    proveedor: str,
+    proyecto: str,
+    concepto: str,
+    moneda: str,
+    importe_por_cuota: float,
+    cantidad_cuotas: int,
+    frecuencia: str,
+    fecha_inicio: dt.date,
+    tc: float = 1.0,
+    obs_base: str = "",
+) -> pd.DataFrame:
+    """
+    Genera automáticamente las N cuotas de una escalera proyectada con sus
+    fechas, importes correlativos y nuevos IDs.
+    """
+    rows = []
+    base_id_num = 1
+    if not df_existing.empty:
+        nums = df_existing["id"].astype(str).str.extract(r"(\d+)$")[0].dropna().astype(int)
+        if not nums.empty:
+            base_id_num = nums.max() + 1
+
+    current_date = pd.Timestamp(fecha_inicio)
+
+    for i in range(cantidad_cuotas):
+        cuota_num = i + 1
+        obs = f"Cuota {cuota_num}/{cantidad_cuotas}"
+        if obs_base:
+            obs += f" | {obs_base}"
+
+        prefix = "EFC" if tesoreria == "Tucumán" else "BA"
+        new_id = f"{prefix}-{base_id_num + i:03d}"
+
+        rows.append({
+            "id": new_id,
+            "tesoreria": tesoreria,
+            "fecha": current_date,
+            "proveedor": proveedor.strip().upper(),
+            "proyecto": proyecto.strip().upper(),
+            "concepto": concepto.strip(),
+            "moneda": moneda,
+            "importe": float(importe_por_cuota),
+            "tc": float(tc) if moneda == "USD" else 1.0,
+            "estado": "Programado",
+            "obs": obs,
+        })
+
+        if frecuencia == "Semanal":
+            current_date += pd.Timedelta(days=7)
+        elif frecuencia == "Quincenal":
+            current_date += pd.Timedelta(days=14)
+        elif frecuencia == "Mensual":
+            year = current_date.year + (current_date.month // 12)
+            month = (current_date.month % 12) + 1
+            day = min(current_date.day, 28)
+            current_date = pd.Timestamp(year=year, month=month, day=day)
+
+    new_df = pd.DataFrame(rows, columns=COLUMNS)
+    return normalize_df(new_df)
