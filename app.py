@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Sistema de Gestión de Efectivo — Multisede (Tucumán / Buenos Aires)
+Sistema de Gestión de Efectivo — L2 For Drink SA
 ====================================================================
-Versión Optimizada: Persistencia en Vivo con Google Sheets, Detalle
-de Escaleras con Descarga Excel, Conciliador Rápido y Carga No Lineal.
+Versión Optimizada: Métricas sin truncamiento, diferenciación por
+operación/escalera, persistencia en Google Sheets y diseño corporativo.
 """
 
 from __future__ import annotations
@@ -33,10 +33,30 @@ import core
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Gestión de Efectivo — Multisede",
+    page_title="Gestión Tesorería — L2 For Drink SA",
     page_icon="💵",
     layout="wide",
     initial_sidebar_state="expanded",
+)
+
+# Estilo para evitar que las cifras numéricas se recorten con "..."
+st.markdown(
+    """
+    <style>
+    [data-testid="stMetricValue"] {
+        font-size: 1.35rem !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        color: #555555;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 SEED_PATH = Path(__file__).parent / "data_seed.csv"
@@ -118,11 +138,19 @@ def fmt_ars(value: float) -> str:
 # Barra lateral
 # ---------------------------------------------------------------------------
 
-st.sidebar.title("💵 Gestión de Efectivo")
-st.sidebar.caption("Control Operativo y Financiero Multisede")
+st.sidebar.title("💵 Gestión de Tesorería")
+st.sidebar.caption("Planes de Pago · L2 For Drink SA")
 
 if conn is not None:
-    st.sidebar.success("🟢 Base Google Sheets sincronizada")
+    st.sidebar.markdown(
+        """
+        <div style="display:flex; align-items:center; gap:6px; color:#2e7d32; font-size:0.85rem; font-weight:500; margin-bottom:12px;">
+            <span style="height:8px; width:8px; background-color:#2e7d32; border-radius:50%; display:inline-block;"></span>
+            Base de datos conectada
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 st.sidebar.markdown("##### 🏢 Sede / Tesorería")
 sede_global = st.sidebar.segmented_control(
@@ -203,8 +231,8 @@ st.sidebar.caption(f"Sede: **{sede_global}** · Pagos: **{len(df_filtered)}** / 
 # Pestañas Principales
 # ---------------------------------------------------------------------------
 
-st.title("💵 Sistema de Gestión de Efectivo")
-st.caption(f"Unidad activa: **{sede_global}** · Base central en Google Drive conectada en tiempo real.")
+st.title("Gestión de Tesorería — Planes de Pago")
+st.caption(f"L2 For Drink SA · Unidad activa: **{sede_global}** · Flujo de caja y escaleras de pagos en tiempo real.")
 
 tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_export = st.tabs([
     "📊 Panel Ejecutivo",
@@ -401,32 +429,67 @@ with tab_matriz:
             st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
 # ---------------------------------------------------------------------------
-# TAB 3 — Control Detallado de Escaleras
+# TAB 3 — Control Detallado de Escaleras (CON DIFERENCIACIÓN DE OPERACIONES)
 # ---------------------------------------------------------------------------
 with tab_escaleras:
     st.subheader("🪜 Control Individual de Escaleras y Presupuestos")
-    st.caption("Inspeccioná cada contrato y cuota de forma vertical. Podés descargar el archivo Excel limpio para compartir.")
+    st.caption("Inspeccioná cada contrato y cuota de forma vertical. Podés filtrar operaciones específicas y descargar en Excel.")
 
     prov_list = sorted(df_filtered["proveedor"].dropna().unique().tolist())
     if not prov_list:
         st.info("No hay proveedores para los filtros seleccionados.")
     else:
-        col_sel_p, col_info_p = st.columns([1, 2])
+        # Selección del proveedor
+        col_sel_p, col_sel_op = st.columns([1, 1])
         with col_sel_p:
-            p_sel = st.selectbox("Seleccionar Proveedor a Inspeccionar", prov_list, key="p_inspect")
+            p_sel = st.selectbox("Seleccionar Proveedor", prov_list, key="p_inspect")
 
-        df_p = df_filtered[df_filtered["proveedor"] == p_sel].copy()
+        df_p_raw = df_filtered[df_filtered["proveedor"] == p_sel].copy()
+
+        # Detección de operaciones distintas dentro del mismo proveedor
+        def clean_op_label(r):
+            c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) and str(r["concepto"]).strip() else ""
+            return c if c else "Operación General / Presupuesto Base"
+
+        df_p_raw["operacion_identificada"] = df_p_raw.apply(clean_op_label, axis=1)
+        operaciones_encontradas = sorted(df_p_raw["operacion_identificada"].unique().tolist())
+
+        with col_sel_op:
+            if len(operaciones_encontradas) > 1:
+                opciones_operacion = ["Todas las Operaciones (Consolidado)"] + operaciones_encontradas
+                op_sel = st.selectbox(
+                    f"📌 Operación / Escalera ({len(operaciones_encontradas)} registradas)",
+                    opciones_operacion,
+                    key="op_inspect",
+                )
+            else:
+                op_sel = "Todas las Operaciones (Consolidado)"
+                st.selectbox(
+                    "📌 Operación / Escalera",
+                    ["Operación Única"],
+                    disabled=True,
+                    key="op_inspect_single",
+                )
+
+        # Filtrar datos según la operación seleccionada
+        if op_sel != "Todas las Operaciones (Consolidado)":
+            df_p = df_p_raw[df_p_raw["operacion_identificada"] == op_sel].copy()
+            subtitulo_op = f" — {op_sel}"
+        else:
+            df_p = df_p_raw.copy()
+            subtitulo_op = ""
+
         kpis_p = core.compute_kpis(df_p)
 
-        with col_info_p:
-            st.markdown(f"#### Ficha: **{p_sel}**")
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Compromiso Total", fmt_ars(kpis_p.total_comprometido))
-            m2.metric("Total Pagado", fmt_ars(kpis_p.total_pagado))
-            m3.metric("Saldo Pendiente", fmt_ars(kpis_p.saldo_pendiente))
-            pct_p = (kpis_p.total_pagado / kpis_p.total_comprometido * 100) if kpis_p.total_comprometido else 0
-            m4.metric("% Cancelado", f"{pct_p:.1f}%")
-            st.progress(min(pct_p / 100, 1.0))
+        # Ficha Resumen con métricas completas
+        st.markdown(f"#### Ficha: **{p_sel}**{subtitulo_op}")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Compromiso Total", fmt_ars(kpis_p.total_comprometido))
+        m2.metric("Total Pagado", fmt_ars(kpis_p.total_pagado))
+        m3.metric("Saldo Pendiente", fmt_ars(kpis_p.saldo_pendiente))
+        pct_p = (kpis_p.total_pagado / kpis_p.total_comprometido * 100) if kpis_p.total_comprometido else 0
+        m4.metric("% Cancelado", f"{pct_p:.1f}%")
+        st.progress(min(pct_p / 100, 1.0))
 
         st.divider()
 
@@ -438,11 +501,6 @@ with tab_escaleras:
             return c or o or "Presupuesto Único"
 
         df_p["presupuesto_obs"] = df_p.apply(merge_concepto_obs, axis=1)
-        df_p["concepto_clean"] = df_p["concepto"].fillna("").str.strip()
-        conceptos = sorted([c for c in df_p["concepto_clean"].unique().tolist() if c])
-        if not conceptos:
-            conceptos = ["General / Único Presupuesto"]
-            df_p["concepto_clean"] = "General / Único Presupuesto"
 
         def format_ladder_table(sub_df: pd.DataFrame) -> pd.DataFrame:
             t = sub_df.sort_values("fecha").copy()
@@ -457,12 +515,16 @@ with tab_escaleras:
             })
             return res
 
-        def export_provider_to_excel(df_table: pd.DataFrame, prov_name: str) -> bytes:
+        def export_provider_to_excel(df_table: pd.DataFrame, prov_name: str, op_name: str) -> bytes:
             wb = Workbook()
             ws = wb.active
             ws.title = "Escalera de Pagos"
 
-            ws["A1"] = f"ESCALERA DE PAGOS — {prov_name.upper()}"
+            titulo_excel = f"ESCALERA DE PAGOS — {prov_name.upper()}"
+            if op_name and op_name != "Todas las Operaciones (Consolidado)":
+                titulo_excel += f" ({op_name.upper()})"
+
+            ws["A1"] = titulo_excel
             ws["A1"].font = Font(size=13, bold=True, color="1F4E78")
             ws["A2"] = f"Generado el: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}"
             ws["A2"].font = Font(size=9, italic=True, color="666666")
@@ -501,47 +563,28 @@ with tab_escaleras:
             wb.save(buf)
             return buf.getvalue()
 
-        def render_ladder_ui(sub_df: pd.DataFrame, label: str):
-            table_view = format_ladder_table(sub_df)
-            excel_bytes = export_provider_to_excel(table_view, p_sel)
+        table_view = format_ladder_table(df_p)
+        excel_bytes = export_provider_to_excel(table_view, p_sel, op_sel)
 
-            c_down, _ = st.columns([2, 3])
-            with c_down:
-                st.download_button(
-                    label="📥 Descargar Escalera en Excel (.xlsx)",
-                    data=excel_bytes,
-                    file_name=f"Escalera_{p_sel.replace(' ', '_')}_{dt.date.today().strftime('%Y%m%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"dl_{label}_{p_sel}",
-                    type="primary",
-                )
-
-            st.dataframe(
-                table_view.style.format({
-                    "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
-                    "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
-                }),
-                use_container_width=True,
-                hide_index=True,
+        c_down, _ = st.columns([2, 3])
+        with c_down:
+            st.download_button(
+                label="📥 Descargar Escalera en Excel (.xlsx)",
+                data=excel_bytes,
+                file_name=f"Escalera_{p_sel.replace(' ', '_')}_{dt.date.today().strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"dl_{p_sel}_{op_sel}",
+                type="primary",
             )
 
-        if len(conceptos) > 1:
-            st.markdown(f"##### Se detectaron **{len(conceptos)} escaleras/presupuestos** en simultáneo:")
-            esc_tabs = st.tabs([f"📌 {c}" for c in conceptos] + ["📑 Todas las Escaleras Consolidadas"])
-            for idx, c_name in enumerate(conceptos):
-                with esc_tabs[idx]:
-                    sub_esc = df_p[df_p["concepto_clean"] == c_name]
-                    sub_kpis = core.compute_kpis(sub_esc)
-                    e1, e2, e3 = st.columns(3)
-                    e1.write(f"**Total Contrato:** {fmt_ars(sub_kpis.total_comprometido)}")
-                    e2.write(f"**Pagado:** {fmt_ars(sub_kpis.total_pagado)}")
-                    e3.write(f"**Saldo:** {fmt_ars(sub_kpis.saldo_pendiente)}")
-                    render_ladder_ui(sub_esc, f"tab_{idx}")
-
-            with esc_tabs[-1]:
-                render_ladder_ui(df_p, "tab_all")
-        else:
-            render_ladder_ui(df_p, "tab_single")
+        st.dataframe(
+            table_view.style.format({
+                "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
+                "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars,
+            }),
+            use_container_width=True,
+            hide_index=True,
+        )
 
 # ---------------------------------------------------------------------------
 # TAB 4 — Conciliador Rápido
@@ -621,9 +664,9 @@ with tab_asistente:
             key="esc_proy"
         )
         esc_concepto = st.text_input(
-            "Presupuesto / Observaciones",
+            "Presupuesto / Identificador de Operación",
             placeholder="Ej: Carpintería Aluminio - Presupuesto N° 450",
-            key="esc_conc"
+            key="esc_conc",
         )
 
     with c_cab3:
@@ -678,7 +721,7 @@ with tab_asistente:
         if not esc_proveedor:
             st.error("Debés indicar el nombre del Proveedor.")
         elif not esc_concepto:
-            st.error("Debés completar el campo Presupuesto / Observaciones.")
+            st.error("Debés completar el campo Presupuesto / Identificador de Operación.")
         elif total_acordado <= 0:
             st.error("El total de los importes debe ser mayor a 0.")
         else:
@@ -751,7 +794,7 @@ with tab_abm:
                 ).strip().upper()
 
             proyecto = st.text_input("Proyecto", value=record["proyecto"] if record is not None else "L2")
-            concepto = st.text_input("Presupuesto / Observaciones", value=record["concepto"] if record is not None else "")
+            concepto = st.text_input("Presupuesto / Identificador de Operación", value=record["concepto"] if record is not None else "")
 
             c_mon, c_tc = st.columns(2)
             moneda = c_mon.selectbox("Moneda", core.MONEDAS_VALIDAS, index=core.MONEDAS_VALIDAS.index(record["moneda"]) if record is not None else 0)
@@ -800,7 +843,7 @@ with tab_abm:
         st.markdown("##### Listado de Pagos")
         disp = df_filtered[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado"]].rename(columns={
             "id": "ID", "tesoreria": "Sede", "fecha": "Fecha", "proveedor": "Proveedor",
-            "concepto": "Presupuesto / Observaciones", "importe_ars": "Importe ARS", "estado": "Estado",
+            "concepto": "Presupuesto / Operación", "importe_ars": "Importe ARS", "estado": "Estado",
         }).sort_values("Fecha")
 
         st.dataframe(disp.style.format({
