@@ -86,7 +86,7 @@ def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = None
 
-    df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+    df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce", dayfirst=True, format="mixed")
     df["importe"] = pd.to_numeric(df["importe"], errors="coerce").fillna(0.0)
     df["tc"] = pd.to_numeric(df["tc"], errors="coerce").fillna(1.0)
     df["moneda"] = df["moneda"].fillna("ARS").astype(str).str.upper().str.strip()
