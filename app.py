@@ -2,8 +2,8 @@
 """
 Sistema de Gestión de Efectivo — Multisede (Tucumán / Buenos Aires)
 ====================================================================
-Versión Optimizada: Detalle de Escaleras con Descarga Excel, Conciliador Rápido
-y Carga Dinámica de Escaleras No Lineales.
+Versión Optimizada: Persistencia en Vivo con Google Sheets, Detalle
+de Escaleras con Descarga Excel, Conciliador Rápido y Carga No Lineal.
 """
 
 from __future__ import annotations
@@ -19,6 +19,12 @@ import streamlit as st
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+
+try:
+    from streamlit_gsheets import GSheetsConnection
+    HAS_GSHEETS = True
+except ImportError:
+    HAS_GSHEETS = False
 
 import core
 
@@ -36,27 +42,70 @@ st.set_page_config(
 SEED_PATH = Path(__file__).parent / "data_seed.csv"
 
 # ---------------------------------------------------------------------------
-# Estado de la aplicación
+# Conexión persistente a Google Sheets
 # ---------------------------------------------------------------------------
+
+conn = None
+if HAS_GSHEETS:
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+    except Exception:
+        conn = None
+
+
+def load_data_source() -> pd.DataFrame:
+    """Intenta leer de Google Sheets en tiempo real; si falla, recurre al seed local."""
+    if conn is not None:
+        try:
+            df_cloud = conn.read(ttl="0s")
+            if df_cloud is not None and not df_cloud.empty:
+                return core.normalize_df(df_cloud)
+        except Exception as e:
+            st.sidebar.warning(f"Aviso Google Sheets: {e}. Usando datos locales temporales.")
+    if SEED_PATH.exists():
+        return core.load_seed_csv(SEED_PATH)
+    return core.normalize_df(pd.DataFrame(columns=core.COLUMNS))
+
+
+def save_data_source(df: pd.DataFrame) -> bool:
+    """Guarda los datos normalizados en Google Sheets."""
+    df_to_save = core.normalize_df(df)
+    df_out = df_to_save[core.COLUMNS].copy()
+    if "fecha" in df_out.columns:
+        df_out["fecha"] = df_out["fecha"].dt.strftime("%Y-%m-%d")
+
+    if conn is not None:
+        try:
+            conn.update(data=df_out)
+            return True
+        except Exception as e:
+            st.error(f"Error al sincronizar con Google Sheets: {e}")
+            return False
+    return False
+
 
 def init_state() -> None:
     if "df" not in st.session_state:
-        if SEED_PATH.exists():
-            st.session_state.df = core.load_seed_csv(SEED_PATH)
-        else:
-            st.session_state.df = core.normalize_df(pd.DataFrame(columns=core.COLUMNS))
+        st.session_state.df = load_data_source()
     if "editing_id" not in st.session_state:
         st.session_state.editing_id = None
     if "sede_global" not in st.session_state:
         st.session_state.sede_global = core.SEDE_CONSOLIDADO
 
+
 init_state()
+
 
 def get_df() -> pd.DataFrame:
     return st.session_state.df
 
-def set_df(df: pd.DataFrame) -> None:
-    st.session_state.df = core.normalize_df(df)
+
+def set_df(df: pd.DataFrame, sync_cloud: bool = True) -> None:
+    norm = core.normalize_df(df)
+    st.session_state.df = norm
+    if sync_cloud:
+        save_data_source(norm)
+
 
 def fmt_ars(value: float) -> str:
     try:
@@ -64,12 +113,16 @@ def fmt_ars(value: float) -> str:
     except (TypeError, ValueError):
         return "$ 0"
 
+
 # ---------------------------------------------------------------------------
 # Barra lateral
 # ---------------------------------------------------------------------------
 
 st.sidebar.title("💵 Gestión de Efectivo")
 st.sidebar.caption("Control Operativo y Financiero Multisede")
+
+if conn is not None:
+    st.sidebar.success("🟢 Base Google Sheets sincronizada")
 
 st.sidebar.markdown("##### 🏢 Sede / Tesorería")
 sede_global = st.sidebar.segmented_control(
@@ -90,15 +143,15 @@ with st.sidebar.expander("📁 Cargar / Importar datos", expanded=False):
     if uploaded is not None and st.button("Reemplazar base actual", type="primary"):
         try:
             new_df = core.load_from_uploaded_xlsx(uploaded)
-            set_df(new_df)
+            set_df(new_df, sync_cloud=True)
             st.success(f"Cargados {len(new_df)} pagos.")
             st.rerun()
         except Exception as e:
             st.error(f"Error: {e}")
 
     st.markdown("---")
-    if st.button("↺ Restaurar datos originales (semilla)"):
-        set_df(core.load_seed_csv(SEED_PATH))
+    if st.button("🔄 Recargar datos desde Google Sheets"):
+        st.session_state.df = load_data_source()
         st.rerun()
 
 st.sidebar.divider()
@@ -126,6 +179,7 @@ f_rango = st.sidebar.date_input(
 meses_disponibles = sorted(df_all["mes"].dropna().unique().tolist())
 f_meses = st.sidebar.multiselect("Mes", meses_disponibles, default=meses_disponibles)
 
+
 def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     if f_proveedores:
@@ -139,6 +193,7 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
         out = out[(out["fecha"] >= d0) & (out["fecha"] <= d1)]
     return out
 
+
 df_filtered = apply_filters(df_all)
 
 st.sidebar.divider()
@@ -149,7 +204,7 @@ st.sidebar.caption(f"Sede: **{sede_global}** · Pagos: **{len(df_filtered)}** / 
 # ---------------------------------------------------------------------------
 
 st.title("💵 Sistema de Gestión de Efectivo")
-st.caption(f"Unidad activa: **{sede_global}** · Flujo de caja, escaleras de pagos y conciliación operativa.")
+st.caption(f"Unidad activa: **{sede_global}** · Base central en Google Drive conectada en tiempo real.")
 
 tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_export = st.tabs([
     "📊 Panel Ejecutivo",
@@ -221,16 +276,15 @@ with tab_kpi:
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------------------------
-# TAB 2 — Matriz Semanal Consolidada (CON FILTRO DE FECHAS Y DESCARGA EXCEL)
+# TAB 2 — Matriz Semanal Consolidada
 # ---------------------------------------------------------------------------
 with tab_matriz:
     st.subheader("Matriz Semanal de Flujo de Efectivo (Consolidada)")
-    st.caption("Visión consolidada por proveedor y semana. Filtrá semanas pasadas y descargá el reporte en Excel listo para enviar.")
+    st.caption("Visión consolidada por proveedor y semana. Filtrá semanas pasadas y descargá el reporte en Excel.")
 
     if df_filtered.empty:
         st.info("Sin datos para mostrar con los filtros aplicados.")
     else:
-        # Obtener todas las semanas disponibles ordenadas
         df_sorted_weeks = df_filtered.sort_values("lunes_semana")
         semanas_ordenadas = (
             df_sorted_weeks[["lunes_semana", "semana_etiqueta"]]
@@ -242,7 +296,6 @@ with tab_matriz:
 
         with col_filtro_sem:
             opciones_semanas = semanas_ordenadas["semana_etiqueta"].tolist()
-            # Selector de semana de inicio
             semana_inicio_sel = st.selectbox(
                 "📅 Mostrar semanas desde:",
                 options=opciones_semanas,
@@ -250,7 +303,6 @@ with tab_matriz:
                 help="Ocultá semanas pasadas para enfocarte en las obligaciones vigentes y futuras.",
             )
 
-        # Filtrar el DataFrame a partir del lunes de la semana seleccionada
         lunes_corte = semanas_ordenadas.loc[
             semanas_ordenadas["semana_etiqueta"] == semana_inicio_sel, "lunes_semana"
         ].iloc[0]
@@ -261,7 +313,6 @@ with tab_matriz:
         if matrix.empty:
             st.info("No hay pagos para el período seleccionado.")
         else:
-            # Función para exportar la matriz a un Excel .xlsx formateado profesionalmente
             def export_matrix_to_excel(matrix_df: pd.DataFrame) -> bytes:
                 wb = Workbook()
                 ws = wb.active
@@ -317,7 +368,7 @@ with tab_matriz:
                 return buf.getvalue()
 
             with col_btn_descarga:
-                st.write("")  # Espaciado visual
+                st.write("")
                 st.write("")
                 excel_matriz = export_matrix_to_excel(matrix)
                 st.download_button(
@@ -331,7 +382,6 @@ with tab_matriz:
 
             st.markdown("---")
 
-            # Renderizado de la tabla en pantalla
             provider_cols = [c for c in matrix.columns if c not in ("Semana", "TOTAL SEMANAL", "ACUMULADO")]
             def highlight_peaks(row):
                 styles = [""] * len(row)
@@ -351,7 +401,7 @@ with tab_matriz:
             st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
 # ---------------------------------------------------------------------------
-# TAB 3 — Control Detallado de Escaleras (CON BOTÓN DE EXCEL NATIVO)
+# TAB 3 — Control Detallado de Escaleras
 # ---------------------------------------------------------------------------
 with tab_escaleras:
     st.subheader("🪜 Control Individual de Escaleras y Presupuestos")
@@ -494,11 +544,11 @@ with tab_escaleras:
             render_ladder_ui(df_p, "tab_single")
 
 # ---------------------------------------------------------------------------
-# TAB 4 — Conciliador Rápido (De Pendiente a Pagado)
+# TAB 4 — Conciliador Rápido
 # ---------------------------------------------------------------------------
 with tab_conciliar:
     st.subheader("⚡ Conciliador Rápido de Pagos")
-    st.caption("Cambiá el estado de los desembolsos de 'Pendiente' a 'Pagado' en un solo paso.")
+    st.caption("Cambiá el estado de los desembolsos de 'Pendiente' a 'Pagado' en un solo paso y sincronizalo con Google Drive.")
 
     df_prog = df_filtered[df_filtered["estado"] != "Pagado"].sort_values("fecha").copy()
     if df_prog.empty:
@@ -535,8 +585,8 @@ with tab_conciliar:
             if st.button("💾 Marcar Seleccionados como PAGADO", type="primary", disabled=len(pagos_a_conciliar) == 0):
                 df_current = get_df()
                 df_updated = core.update_payments_status(df_current, pagos_a_conciliar, new_status="Pagado")
-                set_df(df_updated)
-                st.success(f"¡Se actualizaron {len(pagos_a_conciliar)} pagos a estado PAGADO!")
+                set_df(df_updated, sync_cloud=True)
+                st.success(f"¡Se actualizaron {len(pagos_a_conciliar)} pagos a estado PAGADO en la nube!")
                 st.rerun()
 
         with c_resumen:
@@ -545,7 +595,7 @@ with tab_conciliar:
                 st.info(f"Seleccionados **{len(pagos_a_conciliar)} pagos** por un total de **{fmt_ars(suma_sel)}**.")
 
 # ---------------------------------------------------------------------------
-# TAB 5 — Cargar Nueva Escalera (INTERACTIVA, NO LINEAL Y SIN ST.FORM)
+# TAB 5 — Cargar Nueva Escalera
 # ---------------------------------------------------------------------------
 with tab_asistente:
     st.subheader("➕ Cargar Nueva Escalera de Pago")
@@ -651,8 +701,8 @@ with tab_asistente:
                 items=items_ladder,
             )
             df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
-            set_df(df_total)
-            st.success(f"¡Se incorporaron exitosamente los {len(new_rows)} pagos de la escalera para {esc_proveedor}!")
+            set_df(df_total, sync_cloud=True)
+            st.success(f"¡Se incorporaron {len(new_rows)} pagos para {esc_proveedor} y se sincronizó con Google Drive!")
             st.rerun()
 
 # ---------------------------------------------------------------------------
@@ -738,8 +788,8 @@ with tab_abm:
                             "moneda": moneda, "importe": importe, "tc": tc, "estado": estado, "obs": obs,
                         }])
                         df_current = pd.concat([df_current, new_row], ignore_index=True)
-                    set_df(df_current)
-                    st.success("Guardado correctamente.")
+                    set_df(df_current, sync_cloud=True)
+                    st.success("Guardado correctamente en la base central.")
                     st.rerun()
 
             if can:
@@ -768,8 +818,8 @@ with tab_abm:
             if c_del.button("🗑️ Eliminar", use_container_width=True):
                 df_curr = get_df()
                 df_curr = df_curr[df_curr["id"] != s_id]
-                set_df(df_curr)
-                st.warning(f"Pago {s_id} eliminado.")
+                set_df(df_curr, sync_cloud=True)
+                st.warning(f"Pago {s_id} eliminado de la base.")
                 st.rerun()
 
 # ---------------------------------------------------------------------------
