@@ -2,8 +2,9 @@
 """
 Sistema de Gestión de Efectivo — L2 For Drink SA
 ====================================================================
-Versión: Control de Acceso (Admin vs Solo Lectura), Alerta de Picos > 15M,
-4 KPIs principales y diferenciación por operaciones.
+Versión: Control de Acceso, Promedio Semanal con Semáforos de Pagos
+desde la semana en curso, Descargas en Excel y PDF para Legajos, y
+Matriz Semanal con apertura predeterminada en fecha actual.
 """
 
 from __future__ import annotations
@@ -19,6 +20,12 @@ import streamlit as st
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+
+# Generación de reportes PDF limpios para legajos físicos
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 try:
     from streamlit_gsheets import GSheetsConnection
@@ -59,10 +66,9 @@ st.markdown(
 )
 
 SEED_PATH = Path(__file__).parent / "data_seed.csv"
-UMBRAL_PICO_15M = 15_000_000.0  # Alerta personalizada a partir de 15 millones
 
 # ---------------------------------------------------------------------------
-# Control de Acceso: Detección de Rol Administrador
+# Control de Acceso: Administrador vs Solo Lectura
 # ---------------------------------------------------------------------------
 
 params = st.query_params
@@ -164,7 +170,6 @@ if conn is not None:
         unsafe_allow_html=True,
     )
 
-# Selector de Sede (Disponible tanto para admin como para terceros)
 st.sidebar.markdown("##### 🏢 Sede / Tesorería")
 sede_global = st.sidebar.segmented_control(
     "Sede",
@@ -176,12 +181,11 @@ if sede_global is None:
     sede_global = core.SEDE_CONSOLIDADO
 st.session_state.sede_global = sede_global
 
-# Desbloqueo manual en sidebar si no entraron por URL ?admin=1
 if not st.session_state.is_admin:
     with st.sidebar.expander("🔒 Modo Operador / Admin", expanded=False):
         admin_pass = st.text_input("Clave de edición", type="password", key="pass_admin_input")
         if st.button("Habilitar Edición"):
-            if admin_pass == "fordrink2026":  # Podés cambiar esta clave
+            if admin_pass == "fordrink2026":
                 st.session_state.is_admin = True
                 st.rerun()
             else:
@@ -194,7 +198,6 @@ else:
 
 st.sidebar.divider()
 
-# Herramientas de carga (Solo para Admin)
 if st.session_state.is_admin:
     with st.sidebar.expander("📁 Cargar / Importar datos", expanded=False):
         uploaded = st.file_uploader("Subir archivo Excel", type=["xlsx"], key="uploader_replace")
@@ -282,7 +285,7 @@ else:
     ])
 
 # ---------------------------------------------------------------------------
-# TAB 1 — Panel Ejecutivo (4 Métricas Clave)
+# TAB 1 — Panel Ejecutivo (4 Métricas y Semáforo Semanal desde Hoy)
 # ---------------------------------------------------------------------------
 with tab_kpi:
     kpis = core.compute_kpis(df_filtered)
@@ -317,21 +320,45 @@ with tab_kpi:
             st.plotly_chart(fig_sede, use_container_width=True)
 
     with right:
-        st.subheader("🚨 Alertas de Picos Semanales")
-        st.caption(f"Semanas con retiros superiores a {fmt_ars(UMBRAL_PICO_15M)}")
-        
-        # Cálculo de semanas que superan 15M
-        if not df_filtered.empty:
-            sem_group = df_filtered.groupby(["lunes_semana", "semana_etiqueta"])["importe_ars"].sum().reset_index()
-            picos = sem_group[sem_group["importe_ars"] > UMBRAL_PICO_15M].sort_values("lunes_semana")
-        else:
-            picos = pd.DataFrame()
+        st.subheader("🚦 Carga Semanal y Semáforos de Pago")
+        st.caption("Proyección desde la semana en curso hacia adelante.")
 
-        if picos.empty:
-            st.success("No hay semanas que superen los $ 15.000.000.")
+        # Obtener el lunes de la semana actual
+        hoy_ts = pd.Timestamp(dt.date.today())
+        lunes_actual = hoy_ts - pd.Timedelta(days=hoy_ts.weekday())
+
+        df_futuro = df_filtered[df_filtered["lunes_semana"] >= lunes_actual].copy()
+
+        if df_futuro.empty:
+            st.info("No hay obligaciones pendientes programadas desde la semana actual.")
         else:
-            for _, r in picos.iterrows():
-                st.error(f"**Semana {r['semana_etiqueta']}** — {fmt_ars(r['importe_ars'])}", icon="⚠️")
+            sem_futuras = (
+                df_futuro.groupby(["lunes_semana", "semana_etiqueta"])["importe_ars"]
+                .sum()
+                .reset_index()
+                .sort_values("lunes_semana")
+            )
+            promedio_futuro = sem_futuras["importe_ars"].mean()
+
+            st.markdown(f"**Promedio semanal proyectado:** `{fmt_ars(promedio_futuro)}` ({len(sem_futuras)} semanas)")
+
+            for _, r_sem in sem_futuras.iterrows():
+                monto_s = r_sem["importe_ars"]
+                sem_label = r_sem["semana_etiqueta"]
+
+                # Semáforo de carga
+                if monto_s > 15_000_000.0 or monto_s > (promedio_futuro * 1.3):
+                    icono = "🔴"
+                    msj = f"**{sem_label}** — {fmt_ars(monto_s)} *(Tensión Alta)*"
+                    st.error(msj, icon=icono)
+                elif monto_s >= (promedio_futuro * 0.8):
+                    icono = "🟡"
+                    msj = f"**{sem_label}** — {fmt_ars(monto_s)} *(En Promedio)*"
+                    st.warning(msj, icon=icono)
+                else:
+                    icono = "🟢"
+                    msj = f"**{sem_label}** — {fmt_ars(monto_s)} *(Holgada)*"
+                    st.success(msj, icon=icono)
 
     st.divider()
     st.subheader("Compromiso y Avance por Proveedor")
@@ -347,11 +374,11 @@ with tab_kpi:
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------------------------
-# TAB 2 — Matriz Semanal Consolidada
+# TAB 2 — Matriz Semanal (Apertura Inteligente en Semana Actual + PDF)
 # ---------------------------------------------------------------------------
 with tab_matriz:
     st.subheader("Matriz Semanal de Flujo de Efectivo (Consolidada)")
-    st.caption("Visión consolidada por proveedor y semana. Descargá el reporte completo en Excel.")
+    st.caption("Visión consolidada por proveedor y semana. Reportes listos para imprimir o auditar.")
 
     if df_filtered.empty:
         st.info("Sin datos para mostrar con los filtros aplicados.")
@@ -363,15 +390,27 @@ with tab_matriz:
             .dropna()
         )
 
-        col_filtro_sem, col_btn_descarga = st.columns([2, 2])
+        opciones_semanas = semanas_ordenadas["semana_etiqueta"].tolist()
+
+        # Calcular índice por defecto: semana en curso (o la siguiente más próxima)
+        hoy_ts = pd.Timestamp(dt.date.today())
+        lunes_actual = hoy_ts - pd.Timedelta(days=hoy_ts.weekday())
+
+        idx_default = 0
+        semanas_desde_hoy = semanas_ordenadas[semanas_ordenadas["lunes_semana"] >= lunes_actual]
+        if not semanas_desde_hoy.empty:
+            primera_sem_label = semanas_desde_hoy["semana_etiqueta"].iloc[0]
+            if primera_sem_label in opciones_semanas:
+                idx_default = opciones_semanas.index(primera_sem_label)
+
+        col_filtro_sem, col_btn_excel, col_btn_pdf = st.columns([2, 1.2, 1.2])
 
         with col_filtro_sem:
-            opciones_semanas = semanas_ordenadas["semana_etiqueta"].tolist()
             semana_inicio_sel = st.selectbox(
                 "📅 Mostrar semanas desde:",
                 options=opciones_semanas,
-                index=0,
-                help="Ocultá semanas pasadas para enfocarte en las obligaciones vigentes y futuras.",
+                index=idx_default,
+                help="Abre por defecto en la semana en curso. Podés seleccionar semanas pasadas para auditar el historial.",
             )
 
         lunes_corte = semanas_ordenadas.loc[
@@ -384,6 +423,7 @@ with tab_matriz:
         if matrix.empty:
             st.info("No hay pagos para el período seleccionado.")
         else:
+            # Función Exportar Excel
             def export_matrix_to_excel(matrix_df: pd.DataFrame) -> bytes:
                 wb = Workbook()
                 ws = wb.active
@@ -409,7 +449,7 @@ with tab_matriz:
                     row_num = h_row + 1 + r_idx
                     is_total_row = (row.get("Semana") == "TOTAL POR PROVEEDOR")
                     total_semanal = row.get("TOTAL SEMANAL", 0)
-                    is_peak = (not is_total_row and isinstance(total_semanal, (int, float)) and total_semanal > UMBRAL_PICO_15M)
+                    is_peak = (not is_total_row and isinstance(total_semanal, (int, float)) and total_semanal > 15_000_000.0)
 
                     for c_idx, h in enumerate(headers, 1):
                         val = row[h]
@@ -438,17 +478,95 @@ with tab_matriz:
                 wb.save(buf)
                 return buf.getvalue()
 
-            with col_btn_descarga:
+            # Función Exportar PDF Apaisado
+            def export_matrix_to_pdf(matrix_df: pd.DataFrame) -> bytes:
+                buf = BytesIO()
+                doc = SimpleDocTemplate(
+                    buf,
+                    pagesize=landscape(A4),
+                    rightMargin=20,
+                    leftMargin=20,
+                    topMargin=25,
+                    bottomMargin=25,
+                )
+                styles = getSampleStyleSheet()
+                story = []
+
+                title_style = ParagraphStyle(
+                    'MatTitle',
+                    parent=styles['Heading1'],
+                    fontSize=13,
+                    textColor=colors.HexColor('#1F4E78'),
+                    spaceAfter=3,
+                )
+                sub_style = ParagraphStyle(
+                    'MatSub',
+                    parent=styles['Normal'],
+                    fontSize=8,
+                    textColor=colors.HexColor('#555555'),
+                    spaceAfter=10,
+                )
+
+                story.append(Paragraph(f"<b>L2 FOR DRINK SA — MATRIZ SEMANAL DE FLUJO DE EFECTIVO ({sede_global.upper()})</b>", title_style))
+                story.append(Paragraph(f"Período: Desde semana {semana_inicio_sel} | Fecha de emisión: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
+
+                headers = list(matrix_df.columns)
+                table_data = [headers]
+
+                for _, r in matrix_df.iterrows():
+                    row_vals = []
+                    for h in headers:
+                        v = r[h]
+                        if h == "Semana":
+                            row_vals.append(str(v))
+                        else:
+                            row_vals.append(fmt_ars(v) if pd.notna(v) else "$ 0")
+                    table_data.append(row_vals)
+
+                col_w = max(40, int(780 / len(headers)))
+                t = Table(table_data, colWidths=[col_w] * len(headers))
+                t.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#DDDDDD')),
+                    ('FONTSIZE', (0, 1), (-1, -1), 6.5),
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                    ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#EFEFEF')),
+                    ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ]))
+                story.append(t)
+                doc.build(story)
+                return buf.getvalue()
+
+            with col_btn_excel:
                 st.write("")
                 st.write("")
                 excel_matriz = export_matrix_to_excel(matrix)
                 st.download_button(
-                    label="📥 Descargar Matriz en Excel (.xlsx)",
+                    label="📥 Descargar Reporte en Excel",
                     data=excel_matriz,
                     file_name=f"Matriz_Semanal_{sede_global}_{dt.date.today().strftime('%Y%m%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     type="primary",
                     key="dl_matriz_excel",
+                    use_container_width=True,
+                )
+
+            with col_btn_pdf:
+                st.write("")
+                st.write("")
+                pdf_matriz = export_matrix_to_pdf(matrix)
+                st.download_button(
+                    label="📄 Descargar Reporte en PDF",
+                    data=pdf_matriz,
+                    file_name=f"Matriz_Semanal_{sede_global}_{dt.date.today().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    key="dl_matriz_pdf",
+                    use_container_width=True,
                 )
 
             st.markdown("---")
@@ -459,7 +577,7 @@ with tab_matriz:
                 if row["Semana"] == "TOTAL POR PROVEEDOR":
                     return ["font-weight: bold; background-color: #EFEFEF"] * len(row)
                 try:
-                    if row["TOTAL SEMANAL"] > UMBRAL_PICO_15M:
+                    if row["TOTAL SEMANAL"] > 15_000_000.0:
                         idx = list(row.index).index("TOTAL SEMANAL")
                         styles[idx] = "background-color:#FFC7CE; font-weight:bold;"
                 except Exception:
@@ -472,11 +590,11 @@ with tab_matriz:
             st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
 # ---------------------------------------------------------------------------
-# TAB 3 — Control Detallado de Escaleras (Con Diferenciación de Operaciones)
+# TAB 3 — Control Detallado de Escaleras (PDF Formal para Legajos)
 # ---------------------------------------------------------------------------
 with tab_escaleras:
     st.subheader("🪜 Control Individual de Escaleras y Presupuestos")
-    st.caption("Inspeccioná cada contrato y cuota de forma vertical con descarga a Excel.")
+    st.caption("Inspeccioná cada contrato y cuota de forma vertical con descarga en Excel y PDF para legajos.")
 
     prov_list = sorted(df_filtered["proveedor"].dropna().unique().tolist())
     if not prov_list:
@@ -554,6 +672,7 @@ with tab_escaleras:
             })
             return res
 
+        # Exportar Excel de Escalera
         def export_provider_to_excel(df_table: pd.DataFrame, prov_name: str, op_name: str) -> bytes:
             wb = Workbook()
             ws = wb.active
@@ -602,18 +721,125 @@ with tab_escaleras:
             wb.save(buf)
             return buf.getvalue()
 
+        # Exportar PDF Formal de Escalera para Legajos
+        def export_provider_to_pdf(df_table: pd.DataFrame, prov_name: str, op_name: str, kpis_info) -> bytes:
+            buf = BytesIO()
+            doc = SimpleDocTemplate(
+                buf,
+                pagesize=A4,
+                rightMargin=30,
+                leftMargin=30,
+                topMargin=30,
+                bottomMargin=30,
+            )
+            styles = getSampleStyleSheet()
+            story = []
+
+            title_style = ParagraphStyle(
+                'DocTitle',
+                parent=styles['Heading1'],
+                fontSize=14,
+                textColor=colors.HexColor('#1F4E78'),
+                spaceAfter=4,
+            )
+            sub_style = ParagraphStyle(
+                'DocSub',
+                parent=styles['Normal'],
+                fontSize=9,
+                textColor=colors.HexColor('#444444'),
+                spaceAfter=10,
+            )
+            kpi_style = ParagraphStyle(
+                'DocKpi',
+                parent=styles['Normal'],
+                fontSize=9,
+                textColor=colors.HexColor('#1F4E78'),
+                spaceAfter=14,
+            )
+
+            titulo_txt = f"L2 FOR DRINK SA — PLAN DE PAGO: {prov_name.upper()}"
+            if op_name and op_name != "Todas las Operaciones (Consolidado)":
+                titulo_txt += f" - {op_name.upper()}"
+
+            story.append(Paragraph(f"<b>{titulo_txt}</b>", title_style))
+            story.append(Paragraph(f"Fecha de Emisión: <b>{dt.datetime.now().strftime('%d/%m/%Y %H:%M')}</b> | Sede: <b>{sede_global}</b>", sub_style))
+
+            resumen_txt = (
+                f"<b>Compromiso Total:</b> {fmt_ars(kpis_info.total_comprometido)} &nbsp;&nbsp;|&nbsp;&nbsp; "
+                f"<b>Total Pagado:</b> {fmt_ars(kpis_info.total_pagado)} &nbsp;&nbsp;|&nbsp;&nbsp; "
+                f"<b>Saldo Pendiente:</b> {fmt_ars(kpis_info.saldo_pendiente)}"
+            )
+            story.append(Paragraph(resumen_txt, kpi_style))
+
+            # Tabla de cuotas
+            pdf_data = [["Fecha Vto.", "Detalle / Concepto", "Importe ARS", "Estado"]]
+            for _, r in df_table.iterrows():
+                f_str = r["Fecha Vto."].strftime("%d/%m/%Y") if hasattr(r["Fecha Vto."], "strftime") else str(r["Fecha Vto."])
+                c_str = str(r["Presupuesto / Observaciones"])[:45]
+                m_str = fmt_ars(r["Importe ARS"])
+                e_str = str(r["Estado"])
+                pdf_data.append([f_str, c_str, m_str, e_str])
+
+            t = Table(pdf_data, colWidths=[80, 240, 115, 85])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+                ('FONTSIZE', (0, 1), (-1, -1), 8.5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            story.append(t)
+
+            story.append(Spacer(1, 40))
+
+            # Bloque formal de firmas para legajo
+            firmas_data = [
+                ["___________________________________", "___________________________________"],
+                ["Firma y Aclaración Tesorería", "Conformidad Contratista / Proveedor"],
+                ["L2 For Drink SA", f"{prov_name}"],
+            ]
+            t_firmas = Table(firmas_data, colWidths=[260, 260])
+            t_firmas.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#555555')),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ]))
+            story.append(t_firmas)
+
+            doc.build(story)
+            return buf.getvalue()
+
         table_view = format_ladder_table(df_p)
         excel_bytes = export_provider_to_excel(table_view, p_sel, op_sel)
+        pdf_bytes = export_provider_to_pdf(table_view, p_sel, op_sel, kpis_p)
 
-        c_down, _ = st.columns([2, 3])
-        with c_down:
+        c_down_xl, c_down_pdf, _ = st.columns([1.3, 1.3, 2])
+        with c_down_xl:
             st.download_button(
-                label="📥 Descargar Escalera en Excel (.xlsx)",
+                label="📥 Descargar Reporte en Excel",
                 data=excel_bytes,
                 file_name=f"Escalera_{p_sel.replace(' ', '_')}_{dt.date.today().strftime('%Y%m%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key=f"dl_{p_sel}_{op_sel}",
+                key=f"dl_xl_{p_sel}_{op_sel}",
                 type="primary",
+                use_container_width=True,
+            )
+        with c_down_pdf:
+            st.download_button(
+                label="📄 Descargar Reporte en PDF",
+                data=pdf_bytes,
+                file_name=f"Legajo_Escalera_{p_sel.replace(' ', '_')}_{dt.date.today().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf",
+                key=f"dl_pdf_{p_sel}_{op_sel}",
+                use_container_width=True,
             )
 
         st.dataframe(
@@ -865,9 +1091,9 @@ if st.session_state.is_admin:
                                 "moneda": moneda, "importe": importe, "tc": tc, "estado": estado, "obs": obs,
                             }])
                             df_current = pd.concat([df_current, new_row], ignore_index=True)
-                        set_df(df_current, sync_cloud=True)
-                        st.success("Guardado correctamente en la base central.")
-                        st.rerun()
+                    set_df(df_current, sync_cloud=True)
+                    st.success("Guardado correctamente en la base central.")
+                    st.rerun()
 
                 if can:
                     st.session_state.editing_id = None
