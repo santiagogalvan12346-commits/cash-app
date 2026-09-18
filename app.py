@@ -2,8 +2,8 @@
 """
 Sistema de Gestión de Efectivo — L2 For Drink SA
 ====================================================================
-Versión Optimizada: Métricas sin truncamiento, diferenciación por
-operación/escalera, persistencia en Google Sheets y diseño corporativo.
+Versión: Control de Acceso (Admin vs Solo Lectura), Alerta de Picos > 15M,
+4 KPIs principales y diferenciación por operaciones.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ except ImportError:
 import core
 
 # ---------------------------------------------------------------------------
-# Configuración general de la página
+# Configuración general y estilos
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
@@ -39,18 +39,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Estilo para evitar que las cifras numéricas se recorten con "..."
 st.markdown(
     """
     <style>
     [data-testid="stMetricValue"] {
-        font-size: 1.35rem !important;
+        font-size: 1.4rem !important;
         white-space: nowrap !important;
         overflow: visible !important;
         text-overflow: unset !important;
     }
     [data-testid="stMetricLabel"] {
-        font-size: 0.82rem !important;
+        font-size: 0.85rem !important;
         font-weight: 600 !important;
         color: #555555;
     }
@@ -60,6 +59,17 @@ st.markdown(
 )
 
 SEED_PATH = Path(__file__).parent / "data_seed.csv"
+UMBRAL_PICO_15M = 15_000_000.0  # Alerta personalizada a partir de 15 millones
+
+# ---------------------------------------------------------------------------
+# Control de Acceso: Detección de Rol Administrador
+# ---------------------------------------------------------------------------
+
+params = st.query_params
+is_admin_param = params.get("admin", "") == "1"
+
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = is_admin_param
 
 # ---------------------------------------------------------------------------
 # Conexión persistente a Google Sheets
@@ -74,21 +84,23 @@ if HAS_GSHEETS:
 
 
 def load_data_source() -> pd.DataFrame:
-    """Intenta leer de Google Sheets en tiempo real; si falla, recurre al seed local."""
     if conn is not None:
         try:
             df_cloud = conn.read(ttl="0s")
             if df_cloud is not None and not df_cloud.empty:
                 return core.normalize_df(df_cloud)
         except Exception as e:
-            st.sidebar.warning(f"Aviso Google Sheets: {e}. Usando datos locales temporales.")
+            st.sidebar.warning(f"Aviso Google Sheets: {e}")
     if SEED_PATH.exists():
         return core.load_seed_csv(SEED_PATH)
     return core.normalize_df(pd.DataFrame(columns=core.COLUMNS))
 
 
 def save_data_source(df: pd.DataFrame) -> bool:
-    """Guarda los datos normalizados en Google Sheets."""
+    if not st.session_state.is_admin:
+        st.error("Acceso de solo lectura: no tiene permisos para modificar la base.")
+        return False
+
     df_to_save = core.normalize_df(df)
     df_out = df_to_save[core.COLUMNS].copy()
     if "fecha" in df_out.columns:
@@ -123,7 +135,7 @@ def get_df() -> pd.DataFrame:
 def set_df(df: pd.DataFrame, sync_cloud: bool = True) -> None:
     norm = core.normalize_df(df)
     st.session_state.df = norm
-    if sync_cloud:
+    if sync_cloud and st.session_state.is_admin:
         save_data_source(norm)
 
 
@@ -152,6 +164,7 @@ if conn is not None:
         unsafe_allow_html=True,
     )
 
+# Selector de Sede (Disponible tanto para admin como para terceros)
 st.sidebar.markdown("##### 🏢 Sede / Tesorería")
 sede_global = st.sidebar.segmented_control(
     "Sede",
@@ -163,27 +176,44 @@ if sede_global is None:
     sede_global = core.SEDE_CONSOLIDADO
 st.session_state.sede_global = sede_global
 
-st.sidebar.divider()
-
-with st.sidebar.expander("📁 Cargar / Importar datos", expanded=False):
-    st.markdown("**Reemplazar base central (DB_Pagos)**")
-    uploaded = st.file_uploader("Subir archivo Excel", type=["xlsx"], key="uploader_replace")
-    if uploaded is not None and st.button("Reemplazar base actual", type="primary"):
-        try:
-            new_df = core.load_from_uploaded_xlsx(uploaded)
-            set_df(new_df, sync_cloud=True)
-            st.success(f"Cargados {len(new_df)} pagos.")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error: {e}")
-
-    st.markdown("---")
-    if st.button("🔄 Recargar datos desde Google Sheets"):
-        st.session_state.df = load_data_source()
+# Desbloqueo manual en sidebar si no entraron por URL ?admin=1
+if not st.session_state.is_admin:
+    with st.sidebar.expander("🔒 Modo Operador / Admin", expanded=False):
+        admin_pass = st.text_input("Clave de edición", type="password", key="pass_admin_input")
+        if st.button("Habilitar Edición"):
+            if admin_pass == "fordrink2026":  # Podés cambiar esta clave
+                st.session_state.is_admin = True
+                st.rerun()
+            else:
+                st.error("Clave incorrecta")
+else:
+    st.sidebar.markdown("<small style='color:#1F4E78; font-weight:600;'>🔑 Perfil: Administrador</small>", unsafe_allow_html=True)
+    if st.sidebar.button("Cerrar sesión Admin"):
+        st.session_state.is_admin = False
         st.rerun()
 
 st.sidebar.divider()
-st.sidebar.subheader("🔎 Filtros Globales")
+
+# Herramientas de carga (Solo para Admin)
+if st.session_state.is_admin:
+    with st.sidebar.expander("📁 Cargar / Importar datos", expanded=False):
+        uploaded = st.file_uploader("Subir archivo Excel", type=["xlsx"], key="uploader_replace")
+        if uploaded is not None and st.button("Reemplazar base actual", type="primary"):
+            try:
+                new_df = core.load_from_uploaded_xlsx(uploaded)
+                set_df(new_df, sync_cloud=True)
+                st.success(f"Cargados {len(new_df)} pagos.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+        st.markdown("---")
+        if st.button("🔄 Recargar datos desde Google Sheets"):
+            st.session_state.df = load_data_source()
+            st.rerun()
+    st.sidebar.divider()
+
+st.sidebar.subheader("🔎 Filtros")
 
 df_all_raw = get_df()
 df_all = core.filter_by_sede(df_all_raw, sede_global)
@@ -228,33 +258,39 @@ st.sidebar.divider()
 st.sidebar.caption(f"Sede: **{sede_global}** · Pagos: **{len(df_filtered)}** / {len(df_all_raw)}")
 
 # ---------------------------------------------------------------------------
-# Pestañas Principales
+# Pestañas Principales (Dinámicas según perfil)
 # ---------------------------------------------------------------------------
 
 st.title("Gestión de Tesorería — Planes de Pago")
-st.caption(f"L2 For Drink SA · Unidad activa: **{sede_global}** · Flujo de caja y escaleras de pagos en tiempo real.")
+st.caption(f"L2 For Drink SA · Unidad activa: **{sede_global}** · Flujo de caja en tiempo real.")
 
-tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_export = st.tabs([
-    "📊 Panel Ejecutivo",
-    "🗓️ Matriz Semanal",
-    "🪜 Detalle de Escaleras",
-    "⚡ Conciliación Rápida",
-    "➕ Cargar Nueva Escalera",
-    "📝 Registro Manual (ABM)",
-    "⬇️ Exportar",
-])
+if st.session_state.is_admin:
+    tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_export = st.tabs([
+        "📊 Panel Ejecutivo",
+        "🗓️ Matriz Semanal",
+        "🪜 Detalle de Escaleras",
+        "⚡ Conciliación Rápida",
+        "➕ Cargar Nueva Escalera",
+        "📝 Registro Manual (ABM)",
+        "⬇️ Exportar",
+    ])
+else:
+    tab_kpi, tab_matriz, tab_escaleras = st.tabs([
+        "📊 Panel Ejecutivo",
+        "🗓️ Matriz Semanal",
+        "🪜 Detalle de Escaleras",
+    ])
 
 # ---------------------------------------------------------------------------
-# TAB 1 — Panel Ejecutivo
+# TAB 1 — Panel Ejecutivo (4 Métricas Clave)
 # ---------------------------------------------------------------------------
 with tab_kpi:
     kpis = core.compute_kpis(df_filtered)
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Comprometido", fmt_ars(kpis.total_comprometido))
     c2.metric("Total Pagado", fmt_ars(kpis.total_pagado))
     c3.metric("Saldo Pendiente", fmt_ars(kpis.saldo_pendiente))
     c4.metric("Desembolso Promedio", fmt_ars(kpis.desembolso_promedio))
-    c5.metric("TC Promedio (USD)", f"{kpis.tc_promedio:,.2f}".replace(",", "."))
 
     st.divider()
     left, right = st.columns([3, 2])
@@ -282,13 +318,20 @@ with tab_kpi:
 
     with right:
         st.subheader("🚨 Alertas de Picos Semanales")
-        st.caption(f"Semanas con retiros superiores a {fmt_ars(core.UMBRAL_PICO_EFECTIVO)}")
-        picos = core.weeks_over_threshold(df_filtered)
+        st.caption(f"Semanas con retiros superiores a {fmt_ars(UMBRAL_PICO_15M)}")
+        
+        # Cálculo de semanas que superan 15M
+        if not df_filtered.empty:
+            sem_group = df_filtered.groupby(["lunes_semana", "semana_etiqueta"])["importe_ars"].sum().reset_index()
+            picos = sem_group[sem_group["importe_ars"] > UMBRAL_PICO_15M].sort_values("lunes_semana")
+        else:
+            picos = pd.DataFrame()
+
         if picos.empty:
-            st.success("No hay semanas que superen el tope logístico.")
+            st.success("No hay semanas que superen los $ 15.000.000.")
         else:
             for _, r in picos.iterrows():
-                st.error(f"**Semana {r['semana_etiqueta']}** — {fmt_ars(r['total_ars'])}", icon="⚠️")
+                st.error(f"**Semana {r['semana_etiqueta']}** — {fmt_ars(r['importe_ars'])}", icon="⚠️")
 
     st.divider()
     st.subheader("Compromiso y Avance por Proveedor")
@@ -308,7 +351,7 @@ with tab_kpi:
 # ---------------------------------------------------------------------------
 with tab_matriz:
     st.subheader("Matriz Semanal de Flujo de Efectivo (Consolidada)")
-    st.caption("Visión consolidada por proveedor y semana. Filtrá semanas pasadas y descargá el reporte en Excel.")
+    st.caption("Visión consolidada por proveedor y semana. Descargá el reporte completo en Excel.")
 
     if df_filtered.empty:
         st.info("Sin datos para mostrar con los filtros aplicados.")
@@ -366,7 +409,7 @@ with tab_matriz:
                     row_num = h_row + 1 + r_idx
                     is_total_row = (row.get("Semana") == "TOTAL POR PROVEEDOR")
                     total_semanal = row.get("TOTAL SEMANAL", 0)
-                    is_peak = (not is_total_row and isinstance(total_semanal, (int, float)) and total_semanal > core.UMBRAL_PICO_EFECTIVO)
+                    is_peak = (not is_total_row and isinstance(total_semanal, (int, float)) and total_semanal > UMBRAL_PICO_15M)
 
                     for c_idx, h in enumerate(headers, 1):
                         val = row[h]
@@ -416,7 +459,7 @@ with tab_matriz:
                 if row["Semana"] == "TOTAL POR PROVEEDOR":
                     return ["font-weight: bold; background-color: #EFEFEF"] * len(row)
                 try:
-                    if row["TOTAL SEMANAL"] > core.UMBRAL_PICO_EFECTIVO:
+                    if row["TOTAL SEMANAL"] > UMBRAL_PICO_15M:
                         idx = list(row.index).index("TOTAL SEMANAL")
                         styles[idx] = "background-color:#FFC7CE; font-weight:bold;"
                 except Exception:
@@ -429,24 +472,22 @@ with tab_matriz:
             st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
 # ---------------------------------------------------------------------------
-# TAB 3 — Control Detallado de Escaleras (CON DIFERENCIACIÓN DE OPERACIONES)
+# TAB 3 — Control Detallado de Escaleras (Con Diferenciación de Operaciones)
 # ---------------------------------------------------------------------------
 with tab_escaleras:
     st.subheader("🪜 Control Individual de Escaleras y Presupuestos")
-    st.caption("Inspeccioná cada contrato y cuota de forma vertical. Podés filtrar operaciones específicas y descargar en Excel.")
+    st.caption("Inspeccioná cada contrato y cuota de forma vertical con descarga a Excel.")
 
     prov_list = sorted(df_filtered["proveedor"].dropna().unique().tolist())
     if not prov_list:
         st.info("No hay proveedores para los filtros seleccionados.")
     else:
-        # Selección del proveedor
         col_sel_p, col_sel_op = st.columns([1, 1])
         with col_sel_p:
             p_sel = st.selectbox("Seleccionar Proveedor", prov_list, key="p_inspect")
 
         df_p_raw = df_filtered[df_filtered["proveedor"] == p_sel].copy()
 
-        # Detección de operaciones distintas dentro del mismo proveedor
         def clean_op_label(r):
             c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) and str(r["concepto"]).strip() else ""
             return c if c else "Operación General / Presupuesto Base"
@@ -471,7 +512,6 @@ with tab_escaleras:
                     key="op_inspect_single",
                 )
 
-        # Filtrar datos según la operación seleccionada
         if op_sel != "Todas las Operaciones (Consolidado)":
             df_p = df_p_raw[df_p_raw["operacion_identificada"] == op_sel].copy()
             subtitulo_op = f" — {op_sel}"
@@ -481,7 +521,6 @@ with tab_escaleras:
 
         kpis_p = core.compute_kpis(df_p)
 
-        # Ficha Resumen con métricas completas
         st.markdown(f"#### Ficha: **{p_sel}**{subtitulo_op}")
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Compromiso Total", fmt_ars(kpis_p.total_comprometido))
@@ -587,296 +626,288 @@ with tab_escaleras:
         )
 
 # ---------------------------------------------------------------------------
-# TAB 4 — Conciliador Rápido
+# TAB 4 a 7 — Módulos exclusivos para el Administrador
 # ---------------------------------------------------------------------------
-with tab_conciliar:
-    st.subheader("⚡ Conciliador Rápido de Pagos")
-    st.caption("Cambiá el estado de los desembolsos de 'Pendiente' a 'Pagado' en un solo paso y sincronizalo con Google Drive.")
+if st.session_state.is_admin:
+    with tab_conciliar:
+        st.subheader("⚡ Conciliación Rápida de Pagos")
+        st.caption("Cambiá el estado de los desembolsos a 'Pagado' en un solo clic y sincronizalo con Google Drive.")
 
-    df_prog = df_filtered[df_filtered["estado"] != "Pagado"].sort_values("fecha").copy()
-    if df_prog.empty:
-        st.success("🎉 ¡Excelente! No hay pagos pendientes en este rango.")
-    else:
-        st.write(f"Se encontraron **{len(df_prog)} pagos pendientes** con los filtros activos.")
-
-        df_editor = df_prog[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado", "obs"]].copy()
-        df_editor.insert(0, "Conciliar (Marcar Pagado)", False)
-        df_editor["fecha"] = df_editor["fecha"].dt.date
-
-        edited = st.data_editor(
-            df_editor,
-            column_config={
-                "Conciliar (Marcar Pagado)": st.column_config.CheckboxColumn(
-                    "¿Pagar?",
-                    help="Tildá los pagos liquidados",
-                    default=False,
-                ),
-                "importe_ars": st.column_config.NumberColumn("Importe ARS", format="$ %d"),
-                "fecha": st.column_config.DateColumn("Fecha Vencimiento", format="DD/MM/YYYY"),
-            },
-            disabled=["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado", "obs"],
-            use_container_width=True,
-            hide_index=True,
-            height=380,
-            key="conciliar_editor",
-        )
-
-        pagos_a_conciliar = edited[edited["Conciliar (Marcar Pagado)"] == True]["id"].tolist()
-
-        c_btn, c_resumen = st.columns([1, 2])
-        with c_btn:
-            if st.button("💾 Marcar Seleccionados como PAGADO", type="primary", disabled=len(pagos_a_conciliar) == 0):
-                df_current = get_df()
-                df_updated = core.update_payments_status(df_current, pagos_a_conciliar, new_status="Pagado")
-                set_df(df_updated, sync_cloud=True)
-                st.success(f"¡Se actualizaron {len(pagos_a_conciliar)} pagos a estado PAGADO en la nube!")
-                st.rerun()
-
-        with c_resumen:
-            if pagos_a_conciliar:
-                suma_sel = edited[edited["Conciliar (Marcar Pagado)"] == True]["importe_ars"].sum()
-                st.info(f"Seleccionados **{len(pagos_a_conciliar)} pagos** por un total de **{fmt_ars(suma_sel)}**.")
-
-# ---------------------------------------------------------------------------
-# TAB 5 — Cargar Nueva Escalera
-# ---------------------------------------------------------------------------
-with tab_asistente:
-    st.subheader("➕ Cargar Nueva Escalera de Pago")
-    st.caption("Configurá la cabecera y completá las fechas y montos específicos de cada tramo en la grilla.")
-
-    c_cab1, c_cab2, c_cab3 = st.columns(3)
-    with c_cab1:
-        esc_tesoreria = st.selectbox(
-            "Tesorería / Sede", core.TESORERIAS_VALIDAS,
-            index=0 if sede_global == "Tucumán" else 1, key="esc_sede"
-        )
-        tipo_prov = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True, key="esc_tipo_prov")
-        prov_opts = sorted(get_df()["proveedor"].dropna().unique().tolist())
-        if tipo_prov == "Existente" and prov_opts:
-            esc_proveedor = st.selectbox("Seleccionar de la lista", prov_opts, key="esc_prov_sel")
+        df_prog = df_filtered[df_filtered["estado"] != "Pagado"].sort_values("fecha").copy()
+        if df_prog.empty:
+            st.success("🎉 ¡Excelente! No hay pagos pendientes en este rango.")
         else:
-            esc_proveedor = st.text_input("Escribir nombre del nuevo proveedor", key="esc_prov_new").strip().upper()
+            st.write(f"Se encontraron **{len(df_prog)} pagos pendientes** con los filtros activos.")
 
-    with c_cab2:
-        esc_proyecto = st.text_input(
-            "Proyecto / Obra",
-            value="L2 TUC" if esc_tesoreria == "Tucumán" else "L2 BA",
-            key="esc_proy"
-        )
-        esc_concepto = st.text_input(
-            "Presupuesto / Identificador de Operación",
-            placeholder="Ej: Carpintería Aluminio - Presupuesto N° 450",
-            key="esc_conc",
-        )
+            df_editor = df_prog[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado", "obs"]].copy()
+            df_editor.insert(0, "Conciliar (Marcar Pagado)", False)
+            df_editor["fecha"] = df_editor["fecha"].dt.date
 
-    with c_cab3:
-        esc_moneda = st.selectbox("Moneda del Acuerdo", core.MONEDAS_VALIDAS, key="esc_mon")
-        if esc_moneda == "USD":
-            esc_tc = st.number_input("Tipo de Cambio acordado (USD)", min_value=1.0, value=1400.0, step=10.0, key="esc_tc_usd")
-        else:
-            esc_tc = 1.0
-            st.text_input("Tipo de Cambio", value="1.00 (ARS)", disabled=True)
-
-    st.markdown("---")
-    st.markdown("##### Cronograma de Pagos (Fechas e Importes Personalizados)")
-
-    col_cant, _ = st.columns([1, 3])
-    with col_cant:
-        cant_cuotas = st.number_input("Cantidad de tramos / cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
-
-    if "grid_ladder_data" not in st.session_state or len(st.session_state.grid_ladder_data) != cant_cuotas:
-        base_f = dt.date.today()
-        st.session_state.grid_ladder_data = pd.DataFrame([
-            {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": base_f + dt.timedelta(days=7 * i), "Importe": 0.0}
-            for i in range(int(cant_cuotas))
-        ])
-
-    grid_edited = st.data_editor(
-        st.session_state.grid_ladder_data,
-        column_config={
-            "Tramo": st.column_config.TextColumn("Tramo", disabled=True),
-            "Fecha Vto.": st.column_config.DateColumn("Fecha Vto.", format="DD/MM/YYYY", required=True),
-            "Importe": st.column_config.NumberColumn(
-                f"Importe en {esc_moneda}",
-                help="Ingresá el monto correspondiente a esta cuota",
-                min_value=0.0,
-                format="%.2f",
-                required=True,
-            ),
-        },
-        use_container_width=True,
-        hide_index=True,
-        key="grid_cuotas_editor",
-    )
-
-    total_acordado = float(grid_edited["Importe"].sum())
-    total_ars_calc = total_acordado * esc_tc if esc_moneda == "USD" else total_acordado
-
-    st.info(
-        f"📊 **Resumen del Acuerdo:** {cant_cuotas} tramos · Total: **{esc_moneda} {total_acordado:,.2f}** "
-        f"{f'(Equivalente: **{fmt_ars(total_ars_calc)}** al TC {esc_tc:,.2f})' if esc_moneda == 'USD' else ''}"
-    )
-
-    if st.button("🚀 Guardar Escalera Completa en la Base", type="primary", use_container_width=True):
-        if not esc_proveedor:
-            st.error("Debés indicar el nombre del Proveedor.")
-        elif not esc_concepto:
-            st.error("Debés completar el campo Presupuesto / Identificador de Operación.")
-        elif total_acordado <= 0:
-            st.error("El total de los importes debe ser mayor a 0.")
-        else:
-            items_ladder = []
-            for _, r in grid_edited.iterrows():
-                items_ladder.append({
-                    "fecha": pd.to_datetime(r["Fecha Vto."]),
-                    "importe": float(r["Importe"]),
-                })
-
-            df_curr = get_df()
-            new_rows = core.generate_custom_ladder(
-                df_existing=df_curr,
-                tesoreria=esc_tesoreria,
-                proveedor=esc_proveedor,
-                proyecto=esc_proyecto,
-                concepto=esc_concepto,
-                moneda=esc_moneda,
-                tc=esc_tc,
-                items=items_ladder,
+            edited = st.data_editor(
+                df_editor,
+                column_config={
+                    "Conciliar (Marcar Pagado)": st.column_config.CheckboxColumn(
+                        "¿Pagar?",
+                        help="Tildá los pagos liquidados",
+                        default=False,
+                    ),
+                    "importe_ars": st.column_config.NumberColumn("Importe ARS", format="$ %d"),
+                    "fecha": st.column_config.DateColumn("Fecha Vencimiento", format="DD/MM/YYYY"),
+                },
+                disabled=["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado", "obs"],
+                use_container_width=True,
+                hide_index=True,
+                height=380,
+                key="conciliar_editor",
             )
-            df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
-            set_df(df_total, sync_cloud=True)
-            st.success(f"¡Se incorporaron {len(new_rows)} pagos para {esc_proveedor} y se sincronizó con Google Drive!")
-            st.rerun()
 
-# ---------------------------------------------------------------------------
-# TAB 6 — Registro Manual (ABM Individual)
-# ---------------------------------------------------------------------------
-with tab_abm:
-    st.subheader("Registro y edición manual de pagos individuales")
-    col_form, col_table = st.columns([1, 2])
+            pagos_a_conciliar = edited[edited["Conciliar (Marcar Pagado)"] == True]["id"].tolist()
 
-    with col_form:
-        editing_id = st.session_state.editing_id
-        df_current = get_df()
-        record = None
-        if editing_id is not None:
-            match = df_current[df_current["id"] == editing_id]
-            if not match.empty:
-                record = match.iloc[0]
-
-        st.markdown(f"##### {'✏️ Editar pago ' + editing_id if record is not None else '➕ Nuevo pago individual'}")
-        proveedores_existentes = sorted(df_current["proveedor"].dropna().unique().tolist())
-
-        with st.form("form_pago_manual", clear_on_submit=False):
-            tesoreria_sel = st.selectbox(
-                "Tesorería / Sede", core.TESORERIAS_VALIDAS,
-                index=core.TESORERIAS_VALIDAS.index(record["tesoreria"]) if record is not None else (
-                    core.TESORERIAS_VALIDAS.index(sede_global) if sede_global in core.TESORERIAS_VALIDAS else 0
-                ),
-            )
-            fecha_pago = st.date_input(
-                "Fecha de Pago",
-                value=record["fecha"].date() if record is not None and pd.notna(record["fecha"]) else dt.date.today(),
-            )
-            lunes_preview = core.monday_of(pd.Timestamp(fecha_pago))
-            st.caption(f"Semana calculada: **{core.week_label(lunes_preview)}**")
-
-            modo_p = st.radio("Proveedor", ["Seleccionar existente", "Agregar nuevo"], horizontal=True)
-            if modo_p == "Seleccionar existente" and proveedores_existentes:
-                default_idx = (
-                    proveedores_existentes.index(record["proveedor"])
-                    if record is not None and record["proveedor"] in proveedores_existentes else 0
-                )
-                proveedor = st.selectbox("Proveedor", proveedores_existentes, index=default_idx)
-            else:
-                proveedor = st.text_input(
-                    "Nombre nuevo", value=record["proveedor"] if record is not None else ""
-                ).strip().upper()
-
-            proyecto = st.text_input("Proyecto", value=record["proyecto"] if record is not None else "L2")
-            concepto = st.text_input("Presupuesto / Identificador de Operación", value=record["concepto"] if record is not None else "")
-
-            c_mon, c_tc = st.columns(2)
-            moneda = c_mon.selectbox("Moneda", core.MONEDAS_VALIDAS, index=core.MONEDAS_VALIDAS.index(record["moneda"]) if record is not None else 0)
-            tc = c_tc.number_input("TC", min_value=0.0, value=float(record["tc"]) if record is not None else 1.0, disabled=(moneda == "ARS"))
-
-            importe = st.number_input("Importe", min_value=0.0, value=float(record["importe"]) if record is not None else 0.0, step=50000.0)
-            estado = st.selectbox("Estado", core.ESTADOS_VALIDOS, index=core.ESTADOS_VALIDOS.index(record["estado"]) if record is not None else 0)
-            obs = st.text_area("Notas internas", value=record["obs"] if record is not None else "")
-
-            b1, b2 = st.columns(2)
-            sub = b1.form_submit_button("💾 Guardar", type="primary", use_container_width=True)
-            can = b2.form_submit_button("✖️ Cancelar", use_container_width=True)
-
-            if sub:
-                if not proveedor:
-                    st.error("Indicá un proveedor.")
-                else:
+            c_btn, c_resumen = st.columns([1, 2])
+            with c_btn:
+                if st.button("💾 Marcar Seleccionados como PAGADO", type="primary", disabled=len(pagos_a_conciliar) == 0):
                     df_current = get_df()
-                    if record is not None:
-                        idx = df_current.index[df_current["id"] == editing_id][0]
-                        df_current.loc[idx, [
-                            "tesoreria", "fecha", "proveedor", "proyecto", "concepto",
-                            "moneda", "importe", "tc", "estado", "obs",
-                        ]] = [
-                            tesoreria_sel, pd.Timestamp(fecha_pago), proveedor, proyecto, concepto,
-                            moneda, importe, tc, estado, obs,
-                        ]
-                        st.session_state.editing_id = None
-                    else:
-                        new_id = core.next_id(df_current)
-                        new_row = pd.DataFrame([{
-                            "id": new_id, "tesoreria": tesoreria_sel, "fecha": pd.Timestamp(fecha_pago),
-                            "proveedor": proveedor, "proyecto": proyecto, "concepto": concepto,
-                            "moneda": moneda, "importe": importe, "tc": tc, "estado": estado, "obs": obs,
-                        }])
-                        df_current = pd.concat([df_current, new_row], ignore_index=True)
-                    set_df(df_current, sync_cloud=True)
-                    st.success("Guardado correctamente en la base central.")
+                    df_updated = core.update_payments_status(df_current, pagos_a_conciliar, new_status="Pagado")
+                    set_df(df_updated, sync_cloud=True)
+                    st.success(f"¡Se actualizaron {len(pagos_a_conciliar)} pagos a estado PAGADO en la nube!")
                     st.rerun()
 
-            if can:
-                st.session_state.editing_id = None
-                st.rerun()
+            with c_resumen:
+                if pagos_a_conciliar:
+                    suma_sel = edited[edited["Conciliar (Marcar Pagado)"] == True]["importe_ars"].sum()
+                    st.info(f"Seleccionados **{len(pagos_a_conciliar)} pagos** por un total de **{fmt_ars(suma_sel)}**.")
 
-    with col_table:
-        st.markdown("##### Listado de Pagos")
-        disp = df_filtered[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado"]].rename(columns={
-            "id": "ID", "tesoreria": "Sede", "fecha": "Fecha", "proveedor": "Proveedor",
-            "concepto": "Presupuesto / Operación", "importe_ars": "Importe ARS", "estado": "Estado",
-        }).sort_values("Fecha")
+    with tab_asistente:
+        st.subheader("➕ Cargar Nueva Escalera de Pago")
+        st.caption("Configurá la cabecera y completá las fechas y montos en la grilla.")
 
-        st.dataframe(disp.style.format({
-            "Fecha": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
-            "Importe ARS": fmt_ars,
-        }), use_container_width=True, height=360, hide_index=True)
+        c_cab1, c_cab2, c_cab3 = st.columns(3)
+        with c_cab1:
+            esc_tesoreria = st.selectbox(
+                "Tesorería / Sede", core.TESORERIAS_VALIDAS,
+                index=0 if sede_global == "Tucumán" else 1, key="esc_sede"
+            )
+            tipo_prov = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True, key="esc_tipo_prov")
+            prov_opts = sorted(get_df()["proveedor"].dropna().unique().tolist())
+            if tipo_prov == "Existente" and prov_opts:
+                esc_proveedor = st.selectbox("Seleccionar de la lista", prov_opts, key="esc_prov_sel")
+            else:
+                esc_proveedor = st.text_input("Escribir nombre del nuevo proveedor", key="esc_prov_new").strip().upper()
 
-        ids_disp = disp["ID"].tolist()
-        if ids_disp:
-            c_sel, c_edit, c_del = st.columns([2, 1, 1])
-            s_id = c_sel.selectbox("Seleccionar ID", ids_disp, label_visibility="collapsed")
-            if c_edit.button("✏️ Editar", use_container_width=True):
-                st.session_state.editing_id = s_id
-                st.rerun()
-            if c_del.button("🗑️ Eliminar", use_container_width=True):
+        with c_cab2:
+            esc_proyecto = st.text_input(
+                "Proyecto / Obra",
+                value="L2 TUC" if esc_tesoreria == "Tucumán" else "L2 BA",
+                key="esc_proy"
+            )
+            esc_concepto = st.text_input(
+                "Presupuesto / Identificador de Operación",
+                placeholder="Ej: Carpintería Aluminio - Presupuesto N° 450",
+                key="esc_conc",
+            )
+
+        with c_cab3:
+            esc_moneda = st.selectbox("Moneda del Acuerdo", core.MONEDAS_VALIDAS, key="esc_mon")
+            if esc_moneda == "USD":
+                esc_tc = st.number_input("Tipo de Cambio acordado (USD)", min_value=1.0, value=1400.0, step=10.0, key="esc_tc_usd")
+            else:
+                esc_tc = 1.0
+                st.text_input("Tipo de Cambio", value="1.00 (ARS)", disabled=True)
+
+        st.markdown("---")
+        st.markdown("##### Cronograma de Pagos (Fechas e Importes Personalizados)")
+
+        col_cant, _ = st.columns([1, 3])
+        with col_cant:
+            cant_cuotas = st.number_input("Cantidad de tramos / cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
+
+        if "grid_ladder_data" not in st.session_state or len(st.session_state.grid_ladder_data) != cant_cuotas:
+            base_f = dt.date.today()
+            st.session_state.grid_ladder_data = pd.DataFrame([
+                {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": base_f + dt.timedelta(days=7 * i), "Importe": 0.0}
+                for i in range(int(cant_cuotas))
+            ])
+
+        grid_edited = st.data_editor(
+            st.session_state.grid_ladder_data,
+            column_config={
+                "Tramo": st.column_config.TextColumn("Tramo", disabled=True),
+                "Fecha Vto.": st.column_config.DateColumn("Fecha Vto.", format="DD/MM/YYYY", required=True),
+                "Importe": st.column_config.NumberColumn(
+                    f"Importe en {esc_moneda}",
+                    help="Ingresá el monto correspondiente a esta cuota",
+                    min_value=0.0,
+                    format="%.2f",
+                    required=True,
+                ),
+            },
+            use_container_width=True,
+            hide_index=True,
+            key="grid_cuotas_editor",
+        )
+
+        total_acordado = float(grid_edited["Importe"].sum())
+        total_ars_calc = total_acordado * esc_tc if esc_moneda == "USD" else total_acordado
+
+        st.info(
+            f"📊 **Resumen del Acuerdo:** {cant_cuotas} tramos · Total: **{esc_moneda} {total_acordado:,.2f}** "
+            f"{f'(Equivalente: **{fmt_ars(total_ars_calc)}** al TC {esc_tc:,.2f})' if esc_moneda == 'USD' else ''}"
+        )
+
+        if st.button("🚀 Guardar Escalera Completa en la Base", type="primary", use_container_width=True):
+            if not esc_proveedor:
+                st.error("Debés indicar el nombre del Proveedor.")
+            elif not esc_concepto:
+                st.error("Debés completar el campo Presupuesto / Identificador de Operación.")
+            elif total_acordado <= 0:
+                st.error("El total de los importes debe ser mayor a 0.")
+            else:
+                items_ladder = []
+                for _, r in grid_edited.iterrows():
+                    items_ladder.append({
+                        "fecha": pd.to_datetime(r["Fecha Vto."]),
+                        "importe": float(r["Importe"]),
+                    })
+
                 df_curr = get_df()
-                df_curr = df_curr[df_curr["id"] != s_id]
-                set_df(df_curr, sync_cloud=True)
-                st.warning(f"Pago {s_id} eliminado de la base.")
+                new_rows = core.generate_custom_ladder(
+                    df_existing=df_curr,
+                    tesoreria=esc_tesoreria,
+                    proveedor=esc_proveedor,
+                    proyecto=esc_proyecto,
+                    concepto=esc_concepto,
+                    moneda=esc_moneda,
+                    tc=esc_tc,
+                    items=items_ladder,
+                )
+                df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
+                set_df(df_total, sync_cloud=True)
+                st.success(f"¡Se incorporaron {len(new_rows)} pagos para {esc_proveedor} y se sincronizó con Google Drive!")
                 st.rerun()
 
-# ---------------------------------------------------------------------------
-# TAB 7 — Exportación Completa
-# ---------------------------------------------------------------------------
-with tab_export:
-    st.subheader("⬇️ Exportar Base Actualizada")
-    st.caption("Descargá la base completa con todas las sedes y escaleras consolidadas en formato Excel.")
-    df_exp = get_df()
-    xlsx_data = core.export_to_excel(df_exp)
-    st.download_button(
-        label="⬇️ Descargar Excel (base_pagos_efectivo_multisede.xlsx)",
-        data=xlsx_data,
-        file_name=f"base_pagos_efectivo_{dt.date.today().isoformat()}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        type="primary",
-    )
+    with tab_abm:
+        st.subheader("Registro y edición manual de pagos individuales")
+        col_form, col_table = st.columns([1, 2])
+
+        with col_form:
+            editing_id = st.session_state.editing_id
+            df_current = get_df()
+            record = None
+            if editing_id is not None:
+                match = df_current[df_current["id"] == editing_id]
+                if not match.empty:
+                    record = match.iloc[0]
+
+            st.markdown(f"##### {'✏️ Editar pago ' + editing_id if record is not None else '➕ Nuevo pago individual'}")
+            proveedores_existentes = sorted(df_current["proveedor"].dropna().unique().tolist())
+
+            with st.form("form_pago_manual", clear_on_submit=False):
+                tesoreria_sel = st.selectbox(
+                    "Tesorería / Sede", core.TESORERIAS_VALIDAS,
+                    index=core.TESORERIAS_VALIDAS.index(record["tesoreria"]) if record is not None else (
+                        core.TESORERIAS_VALIDAS.index(sede_global) if sede_global in core.TESORERIAS_VALIDAS else 0
+                    ),
+                )
+                fecha_pago = st.date_input(
+                    "Fecha de Pago",
+                    value=record["fecha"].date() if record is not None and pd.notna(record["fecha"]) else dt.date.today(),
+                )
+                lunes_preview = core.monday_of(pd.Timestamp(fecha_pago))
+                st.caption(f"Semana calculada: **{core.week_label(lunes_preview)}**")
+
+                modo_p = st.radio("Proveedor", ["Seleccionar existente", "Agregar nuevo"], horizontal=True)
+                if modo_p == "Seleccionar existente" and proveedores_existentes:
+                    default_idx = (
+                        proveedores_existentes.index(record["proveedor"])
+                        if record is not None and record["proveedor"] in proveedores_existentes else 0
+                    )
+                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=default_idx)
+                else:
+                    proveedor = st.text_input(
+                        "Nombre nuevo", value=record["proveedor"] if record is not None else ""
+                    ).strip().upper()
+
+                proyecto = st.text_input("Proyecto", value=record["proyecto"] if record is not None else "L2")
+                concepto = st.text_input("Presupuesto / Identificador de Operación", value=record["concepto"] if record is not None else "")
+
+                c_mon, c_tc = st.columns(2)
+                moneda = c_mon.selectbox("Moneda", core.MONEDAS_VALIDAS, index=core.MONEDAS_VALIDAS.index(record["moneda"]) if record is not None else 0)
+                tc = c_tc.number_input("TC", min_value=0.0, value=float(record["tc"]) if record is not None else 1.0, disabled=(moneda == "ARS"))
+
+                importe = st.number_input("Importe", min_value=0.0, value=float(record["importe"]) if record is not None else 0.0, step=50000.0)
+                estado = st.selectbox("Estado", core.ESTADOS_VALIDOS, index=core.ESTADOS_VALIDOS.index(record["estado"]) if record is not None else 0)
+                obs = st.text_area("Notas internas", value=record["obs"] if record is not None else "")
+
+                b1, b2 = st.columns(2)
+                sub = b1.form_submit_button("💾 Guardar", type="primary", use_container_width=True)
+                can = b2.form_submit_button("✖️ Cancelar", use_container_width=True)
+
+                if sub:
+                    if not proveedor:
+                        st.error("Indicá un proveedor.")
+                    else:
+                        df_current = get_df()
+                        if record is not None:
+                            idx = df_current.index[df_current["id"] == editing_id][0]
+                            df_current.loc[idx, [
+                                "tesoreria", "fecha", "proveedor", "proyecto", "concepto",
+                                "moneda", "importe", "tc", "estado", "obs",
+                            ]] = [
+                                tesoreria_sel, pd.Timestamp(fecha_pago), proveedor, proyecto, concepto,
+                                moneda, importe, tc, estado, obs,
+                            ]
+                            st.session_state.editing_id = None
+                        else:
+                            new_id = core.next_id(df_current)
+                            new_row = pd.DataFrame([{
+                                "id": new_id, "tesoreria": tesoreria_sel, "fecha": pd.Timestamp(fecha_pago),
+                                "proveedor": proveedor, "proyecto": proyecto, "concepto": concepto,
+                                "moneda": moneda, "importe": importe, "tc": tc, "estado": estado, "obs": obs,
+                            }])
+                            df_current = pd.concat([df_current, new_row], ignore_index=True)
+                        set_df(df_current, sync_cloud=True)
+                        st.success("Guardado correctamente en la base central.")
+                        st.rerun()
+
+                if can:
+                    st.session_state.editing_id = None
+                    st.rerun()
+
+        with col_table:
+            st.markdown("##### Listado de Pagos")
+            disp = df_filtered[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado"]].rename(columns={
+                "id": "ID", "tesoreria": "Sede", "fecha": "Fecha", "proveedor": "Proveedor",
+                "concepto": "Presupuesto / Operación", "importe_ars": "Importe ARS", "estado": "Estado",
+            }).sort_values("Fecha")
+
+            st.dataframe(disp.style.format({
+                "Fecha": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
+                "Importe ARS": fmt_ars,
+            }), use_container_width=True, height=360, hide_index=True)
+
+            ids_disp = disp["ID"].tolist()
+            if ids_disp:
+                c_sel, c_edit, c_del = st.columns([2, 1, 1])
+                s_id = c_sel.selectbox("Seleccionar ID", ids_disp, label_visibility="collapsed")
+                if c_edit.button("✏️ Editar", use_container_width=True):
+                    st.session_state.editing_id = s_id
+                    st.rerun()
+                if c_del.button("🗑️ Eliminar", use_container_width=True):
+                    df_curr = get_df()
+                    df_curr = df_curr[df_curr["id"] != s_id]
+                    set_df(df_curr, sync_cloud=True)
+                    st.warning(f"Pago {s_id} eliminado de la base.")
+                    st.rerun()
+
+    with tab_export:
+        st.subheader("⬇️ Exportar Base Actualizada")
+        st.caption("Descargá la base completa con todas las sedes y escaleras consolidadas en formato Excel.")
+        df_exp = get_df()
+        xlsx_data = core.export_to_excel(df_exp)
+        st.download_button(
+            label="⬇️ Descargar Excel (base_pagos_efectivo_multisede.xlsx)",
+            data=xlsx_data,
+            file_name=f"base_pagos_efectivo_{dt.date.today().isoformat()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+        )
