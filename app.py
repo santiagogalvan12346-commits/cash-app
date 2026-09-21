@@ -2,14 +2,15 @@
 """
 Sistema de Gestión de Efectivo — L2 For Drink SA
 ====================================================================
-Versión: Control de Acceso, Promedio Semanal con Semáforos de Pagos
-desde la semana en curso, Descargas en Excel y PDF para Legajos, y
-Matriz Semanal con apertura predeterminada en fecha actual.
+Versión: Semáforo con umbrales dinámicos (Consolidado: 30M | Sedes: 15M),
+Aviso confirmatorio anti-duplicados al guardar escaleras, descargas PDF/Excel
+para legajos físicos y apertura inteligente en semana actual.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import time
 from io import BytesIO
 from pathlib import Path
 
@@ -21,7 +22,6 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-# Generación de reportes PDF limpios para legajos físicos
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -181,6 +181,9 @@ if sede_global is None:
     sede_global = core.SEDE_CONSOLIDADO
 st.session_state.sede_global = sede_global
 
+# Definición de umbral de tensión según sede activa
+umbral_tension = 30_000_000.0 if sede_global == core.SEDE_CONSOLIDADO else 15_000_000.0
+
 if not st.session_state.is_admin:
     with st.sidebar.expander("🔒 Modo Operador / Admin", expanded=False):
         admin_pass = st.text_input("Clave de edición", type="password", key="pass_admin_input")
@@ -261,7 +264,7 @@ st.sidebar.divider()
 st.sidebar.caption(f"Sede: **{sede_global}** · Pagos: **{len(df_filtered)}** / {len(df_all_raw)}")
 
 # ---------------------------------------------------------------------------
-# Pestañas Principales (Dinámicas según perfil)
+# Pestañas Principales
 # ---------------------------------------------------------------------------
 
 st.title("Gestión de Tesorería — Planes de Pago")
@@ -285,7 +288,7 @@ else:
     ])
 
 # ---------------------------------------------------------------------------
-# TAB 1 — Panel Ejecutivo (4 Métricas y Semáforo Semanal desde Hoy)
+# TAB 1 — Panel Ejecutivo (Semáforo Dinámico: Consolidado 30M / Sedes 15M)
 # ---------------------------------------------------------------------------
 with tab_kpi:
     kpis = core.compute_kpis(df_filtered)
@@ -321,16 +324,15 @@ with tab_kpi:
 
     with right:
         st.subheader("🚦 Carga Semanal y Semáforos de Pago")
-        st.caption("Proyección desde la semana en curso hacia adelante.")
+        st.caption(f"Semáforo rojo (> {fmt_ars(umbral_tension)}) según sede activa ({sede_global}).")
 
-        # Obtener el lunes de la semana actual
         hoy_ts = pd.Timestamp(dt.date.today())
         lunes_actual = hoy_ts - pd.Timedelta(days=hoy_ts.weekday())
 
         df_futuro = df_filtered[df_filtered["lunes_semana"] >= lunes_actual].copy()
 
         if df_futuro.empty:
-            st.info("No hay obligaciones pendientes programadas desde la semana actual.")
+            st.info("No hay desembolsos pendientes programados desde la semana actual.")
         else:
             sem_futuras = (
                 df_futuro.groupby(["lunes_semana", "semana_etiqueta"])["importe_ars"]
@@ -346,8 +348,8 @@ with tab_kpi:
                 monto_s = r_sem["importe_ars"]
                 sem_label = r_sem["semana_etiqueta"]
 
-                # Semáforo de carga
-                if monto_s > 15_000_000.0 or monto_s > (promedio_futuro * 1.3):
+                # Semáforo dinámico: Rojo según umbral de la sede, o si supera 30% del promedio
+                if monto_s > umbral_tension or monto_s > (promedio_futuro * 1.3):
                     icono = "🔴"
                     msj = f"**{sem_label}** — {fmt_ars(monto_s)} *(Tensión Alta)*"
                     st.error(msj, icon=icono)
@@ -374,7 +376,7 @@ with tab_kpi:
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------------------------
-# TAB 2 — Matriz Semanal (Apertura Inteligente en Semana Actual + PDF)
+# TAB 2 — Matriz Semanal (Apertura en Semana Actual + PDF/Excel)
 # ---------------------------------------------------------------------------
 with tab_matriz:
     st.subheader("Matriz Semanal de Flujo de Efectivo (Consolidada)")
@@ -392,7 +394,6 @@ with tab_matriz:
 
         opciones_semanas = semanas_ordenadas["semana_etiqueta"].tolist()
 
-        # Calcular índice por defecto: semana en curso (o la siguiente más próxima)
         hoy_ts = pd.Timestamp(dt.date.today())
         lunes_actual = hoy_ts - pd.Timedelta(days=hoy_ts.weekday())
 
@@ -423,7 +424,6 @@ with tab_matriz:
         if matrix.empty:
             st.info("No hay pagos para el período seleccionado.")
         else:
-            # Función Exportar Excel
             def export_matrix_to_excel(matrix_df: pd.DataFrame) -> bytes:
                 wb = Workbook()
                 ws = wb.active
@@ -449,7 +449,7 @@ with tab_matriz:
                     row_num = h_row + 1 + r_idx
                     is_total_row = (row.get("Semana") == "TOTAL POR PROVEEDOR")
                     total_semanal = row.get("TOTAL SEMANAL", 0)
-                    is_peak = (not is_total_row and isinstance(total_semanal, (int, float)) and total_semanal > 15_000_000.0)
+                    is_peak = (not is_total_row and isinstance(total_semanal, (int, float)) and total_semanal > umbral_tension)
 
                     for c_idx, h in enumerate(headers, 1):
                         val = row[h]
@@ -478,7 +478,6 @@ with tab_matriz:
                 wb.save(buf)
                 return buf.getvalue()
 
-            # Función Exportar PDF Apaisado
             def export_matrix_to_pdf(matrix_df: pd.DataFrame) -> bytes:
                 buf = BytesIO()
                 doc = SimpleDocTemplate(
@@ -577,7 +576,7 @@ with tab_matriz:
                 if row["Semana"] == "TOTAL POR PROVEEDOR":
                     return ["font-weight: bold; background-color: #EFEFEF"] * len(row)
                 try:
-                    if row["TOTAL SEMANAL"] > 15_000_000.0:
+                    if row["TOTAL SEMANAL"] > umbral_tension:
                         idx = list(row.index).index("TOTAL SEMANAL")
                         styles[idx] = "background-color:#FFC7CE; font-weight:bold;"
                 except Exception:
@@ -672,7 +671,6 @@ with tab_escaleras:
             })
             return res
 
-        # Exportar Excel de Escalera
         def export_provider_to_excel(df_table: pd.DataFrame, prov_name: str, op_name: str) -> bytes:
             wb = Workbook()
             ws = wb.active
@@ -721,7 +719,6 @@ with tab_escaleras:
             wb.save(buf)
             return buf.getvalue()
 
-        # Exportar PDF Formal de Escalera para Legajos
         def export_provider_to_pdf(df_table: pd.DataFrame, prov_name: str, op_name: str, kpis_info) -> bytes:
             buf = BytesIO()
             doc = SimpleDocTemplate(
@@ -771,7 +768,6 @@ with tab_escaleras:
             )
             story.append(Paragraph(resumen_txt, kpi_style))
 
-            # Tabla de cuotas
             pdf_data = [["Fecha Vto.", "Detalle / Concepto", "Importe ARS", "Estado"]]
             for _, r in df_table.iterrows():
                 f_str = r["Fecha Vto."].strftime("%d/%m/%Y") if hasattr(r["Fecha Vto."], "strftime") else str(r["Fecha Vto."])
@@ -798,7 +794,6 @@ with tab_escaleras:
 
             story.append(Spacer(1, 40))
 
-            # Bloque formal de firmas para legajo
             firmas_data = [
                 ["___________________________________", "___________________________________"],
                 ["Firma y Aclaración Tesorería", "Conformidad Contratista / Proveedor"],
@@ -905,7 +900,13 @@ if st.session_state.is_admin:
 
     with tab_asistente:
         st.subheader("➕ Cargar Nueva Escalera de Pago")
-        st.caption("Configurá la cabecera y completá las fechas y montos en la grilla.")
+        st.caption("Completá los datos del acuerdo y cargá los tramos en la grilla.")
+
+        # Mensaje confirmatorio si se acaba de guardar una escalera
+        if "escalera_guardada_msj" in st.session_state:
+            st.success(st.session_state.escalera_guardada_msj, icon="✅")
+            st.toast(st.session_state.escalera_guardada_msj, icon="🚀")
+            del st.session_state["escalera_guardada_msj"]
 
         c_cab1, c_cab2, c_cab3 = st.columns(3)
         with c_cab1:
@@ -947,12 +948,14 @@ if st.session_state.is_admin:
         with col_cant:
             cant_cuotas = st.number_input("Cantidad de tramos / cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
 
-        if "grid_ladder_data" not in st.session_state or len(st.session_state.grid_ladder_data) != cant_cuotas:
+        # Inicializar o resetear grilla
+        if "grid_ladder_data" not in st.session_state or len(st.session_state.grid_ladder_data) != cant_cuotas or st.session_state.get("reset_grid_flag", False):
             base_f = dt.date.today()
             st.session_state.grid_ladder_data = pd.DataFrame([
                 {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": base_f + dt.timedelta(days=7 * i), "Importe": 0.0}
                 for i in range(int(cant_cuotas))
             ])
+            st.session_state["reset_grid_flag"] = False
 
         grid_edited = st.data_editor(
             st.session_state.grid_ladder_data,
@@ -988,28 +991,37 @@ if st.session_state.is_admin:
             elif total_acordado <= 0:
                 st.error("El total de los importes debe ser mayor a 0.")
             else:
-                items_ladder = []
-                for _, r in grid_edited.iterrows():
-                    items_ladder.append({
-                        "fecha": pd.to_datetime(r["Fecha Vto."]),
-                        "importe": float(r["Importe"]),
-                    })
+                with st.spinner("Guardando y sincronizando con Google Sheets..."):
+                    items_ladder = []
+                    for _, r in grid_edited.iterrows():
+                        items_ladder.append({
+                            "fecha": pd.to_datetime(r["Fecha Vto."]),
+                            "importe": float(r["Importe"]),
+                        })
 
-                df_curr = get_df()
-                new_rows = core.generate_custom_ladder(
-                    df_existing=df_curr,
-                    tesoreria=esc_tesoreria,
-                    proveedor=esc_proveedor,
-                    proyecto=esc_proyecto,
-                    concepto=esc_concepto,
-                    moneda=esc_moneda,
-                    tc=esc_tc,
-                    items=items_ladder,
-                )
-                df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
-                set_df(df_total, sync_cloud=True)
-                st.success(f"¡Se incorporaron {len(new_rows)} pagos para {esc_proveedor} y se sincronizó con Google Drive!")
-                st.rerun()
+                    df_curr = get_df()
+                    new_rows = core.generate_custom_ladder(
+                        df_existing=df_curr,
+                        tesoreria=esc_tesoreria,
+                        proveedor=esc_proveedor,
+                        proyecto=esc_proyecto,
+                        concepto=esc_concepto,
+                        moneda=esc_moneda,
+                        tc=esc_tc,
+                        items=items_ladder,
+                    )
+                    df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
+                    ok = save_data_source(df_total)
+
+                    if ok:
+                        st.session_state.df = core.normalize_df(df_total)
+                        st.session_state["reset_grid_flag"] = True
+                        st.session_state["escalera_guardada_msj"] = (
+                            f"¡Escalera para {esc_proveedor} ({esc_concepto}) guardada exitosamente! "
+                            f"Se incorporaron {len(new_rows)} cuotas a Google Sheets."
+                        )
+                        time.sleep(0.5)
+                        st.rerun()
 
     with tab_abm:
         st.subheader("Registro y edición manual de pagos individuales")
@@ -1091,9 +1103,9 @@ if st.session_state.is_admin:
                                 "moneda": moneda, "importe": importe, "tc": tc, "estado": estado, "obs": obs,
                             }])
                             df_current = pd.concat([df_current, new_row], ignore_index=True)
-                    set_df(df_current, sync_cloud=True)
-                    st.success("Guardado correctamente en la base central.")
-                    st.rerun()
+                        set_df(df_current, sync_cloud=True)
+                        st.success("Guardado correctamente en la base central.")
+                        st.rerun()
 
                 if can:
                     st.session_state.editing_id = None
