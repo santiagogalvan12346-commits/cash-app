@@ -963,6 +963,8 @@ if modulo_activo == "💵 Gestión de Tesorería":
 # MÓDULO 2: ANALIZADOR DE LIBRADORES · BCRA (ESPACIO DEDICADO)
 # ===========================================================================
 elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
+    import streamlit.components.v1 as components
+
     col_t_bcra, col_btns_bcra = st.columns([3, 1.2])
     with col_t_bcra:
         st.title("Analizador de Libradores BCRA")
@@ -1016,16 +1018,16 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
     if "bcra_status_msg" in st.session_state:
         st.caption(st.session_state["bcra_status_msg"])
 
-    # Tarjetas de Resumen
     data_bcra = st.session_state.get("resultados_bcra", [])
     n_tot = len(data_bcra)
     n_ok = len([x for x in data_bcra if x["risk"] == "ok"])
     n_warn = len([x for x in data_bcra if x["risk"] == "warn"])
     n_bad = len([x for x in data_bcra if x["risk"] == "bad"])
 
+    # Tarjetas de Resumen con color explícito forzado
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Libradores Evaluados</div><div class='bcra-val'>{n_tot}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Libradores Evaluados</div><div class='bcra-val' style='color:#0f172a;'>{n_tot}</div></div>", unsafe_allow_html=True)
     with c2:
         st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Sin Alertas</div><div class='bcra-val' style='color:#166534;'>{n_ok}</div></div>", unsafe_allow_html=True)
     with c3:
@@ -1049,53 +1051,47 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 unsafe_allow_html=True,
             )
 
-            html_rows = ""
-            for idx, x in enumerate(data_bcra):
+            # Generamos las filas HTML sin indentación que confunda al parser
+            rows_html_list = []
+            for x in data_bcra:
                 sit_val = x["worst"]
-                badge_class = "badge-sit-1" if sit_val in (0, 1) else ("badge-sit-2" if sit_val == 2 else "badge-sit-bad")
-                pill_class = "pill-alerta" if x["risk"] == "bad" else ("pill-revisar" if x["risk"] == "warn" else "pill-ok")
+                badge_bg = "#dcfce7" if sit_val in (0, 1) else ("#fef9c3" if sit_val == 2 else "#fee2e2")
+                badge_tx = "#166534" if sit_val in (0, 1) else ("#854d0e" if sit_val == 2 else "#991b1b")
+                
+                pill_bg = "#fee2e2" if x["risk"] == "bad" else ("#fef9c3" if x["risk"] == "warn" else "#dcfce7")
+                pill_tx = "#991b1b" if x["risk"] == "bad" else ("#854d0e" if x["risk"] == "warn" else "#166534")
+
                 imp_text = f"<span style='color:#991b1b; font-weight:700;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#64748b;'>(0 impagos)</span>"
 
-                html_rows += f"""
-                <tr style="border-bottom: 1px solid #f1f5f9; padding: 10px 0;">
-                    <td style="padding: 12px 8px;">
-                        <b>{x['denominacion']}</b><br>
-                        <small style="font-family:monospace; color:#64748b;">{x['cuit']}</small>
-                    </td>
-                    <td style="text-align:center; padding: 12px 8px;">
-                        <span class="badge-sit {badge_class}">{sit_val}</span>
-                    </td>
-                    <td style="padding: 12px 8px; font-weight:700;">
-                        {fmt_ars(x['debt'])}
-                    </td>
-                    <td style="padding: 12px 8px;">
-                        {x['rejected']} {imp_text}
-                    </td>
-                    <td style="padding: 12px 8px; text-align:right;">
-                        <span class="pill-status {pill_class}">{x['risk_label']}</span>
-                    </td>
-                </tr>
-                """
+                row = (
+                    f"<tr style='border-bottom:1px solid #f1f5f9;'>"
+                    f"<td style='padding:12px 10px;'><b>{x['denominacion']}</b><br><small style='font-family:monospace; color:#64748b;'>{x['cuit']}</small></td>"
+                    f"<td style='text-align:center; padding:12px 6px;'><span style='display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:{badge_bg}; color:{badge_tx}; font-weight:700; font-size:12px;'>{sit_val}</span></td>"
+                    f"<td style='padding:12px 10px; font-weight:700; color:#0f172a;'>{fmt_ars(x['debt'])}</td>"
+                    f"<td style='padding:12px 10px; color:#0f172a;'>{x['rejected']} {imp_text}</td>"
+                    f"<td style='padding:12px 10px; text-align:right;'><span style='display:inline-block; padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:700; background:{pill_bg}; color:{pill_tx};'>{x['risk_label']}</span></td>"
+                    f"</tr>"
+                )
+                rows_html_list.append(row)
 
-            tabla_completa_html = f"""
-            <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; padding:8px 12px;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                    <thead>
-                        <tr style="border-bottom:1px solid #e2e8f0; color:#64748b; font-size:11px; text-transform:uppercase;">
-                            <th style="padding:8px; text-align:left;">Librador / Denominación</th>
-                            <th style="padding:8px; text-align:center;">Peor Sit.</th>
-                            <th style="padding:8px; text-align:left;">Deuda Bancaria</th>
-                            <th style="padding:8px; text-align:left;">Rechazos (Pend.)</th>
-                            <th style="padding:8px; text-align:right;">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {html_rows}
-                    </tbody>
-                </table>
-            </div>
-            """
-            st.markdown(tabla_completa_html, unsafe_allow_html=True)
+            table_content = "".join(rows_html_list)
+            full_table_html = (
+                f"<div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;'>"
+                f"<table style='width:100%; border-collapse:collapse; font-size:13px;'>"
+                f"<thead><tr style='border-bottom:1px solid #e2e8f0; color:#64748b; font-size:11px; text-transform:uppercase; background:#f8fafc;'>"
+                f"<th style='padding:10px; text-align:left;'>Librador / Denominación</th>"
+                f"<th style='padding:10px; text-align:center;'>Peor Sit.</th>"
+                f"<th style='padding:10px; text-align:left;'>Deuda Bancaria</th>"
+                f"<th style='padding:10px; text-align:left;'>Rechazos (Pend.)</th>"
+                f"<th style='padding:10px; text-align:right;'>Estado</th>"
+                f"</tr></thead>"
+                f"<tbody>{table_content}</tbody>"
+                f"</table></div>"
+            )
+
+            # Renderizado encapsulado garantizado
+            calc_height = max(240, 48 * len(data_bcra) + 60)
+            components.html(full_table_html, height=calc_height, scrolling=True)
 
         with col_grid_drawer:
             st.markdown(
@@ -1112,37 +1108,24 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             idx_sel = opciones_nombres.index(sel_lib)
             lib = data_bcra[idx_sel]
 
-            color_badge = "pill-alerta" if lib["risk"] == "bad" else ("pill-revisar" if lib["risk"] == "warn" else "pill-ok")
+            pill_bg_d = "#fee2e2" if lib["risk"] == "bad" else ("#fef9c3" if lib["risk"] == "warn" else "#dcfce7")
+            pill_tx_d = "#991b1b" if lib["risk"] == "bad" else ("#854d0e" if lib["risk"] == "warn" else "#166534")
 
-            drawer_html = f"""
-            <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px;">
-                <h3 style="margin:0 0 2px 0; font-size:18px; font-weight:700;">{lib['denominacion']}</h3>
-                <div style="font-family:monospace; color:#64748b; font-size:13px; margin-bottom:12px;">{lib['cuit']}</div>
-                <span class="pill-status {color_badge}">{lib['risk_label']}</span>
-                
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px;">
-                    <div style="background:#f8fafc; padding:10px; border-radius:8px;">
-                        <div class="bcra-label">Peor Situación</div>
-                        <b style="font-size:16px; margin-top:2px; display:block;">{lib['worst']}</b>
-                    </div>
-                    <div style="background:#f8fafc; padding:10px; border-radius:8px;">
-                        <div class="bcra-label">Deuda Total</div>
-                        <b style="font-size:16px; margin-top:2px; display:block;">{fmt_ars(lib['debt'])}</b>
-                    </div>
-                    <div style="background:#f8fafc; padding:10px; border-radius:8px;">
-                        <div class="bcra-label">Total Rechazos</div>
-                        <b style="font-size:16px; margin-top:2px; display:block;">{lib['rejected']}</b>
-                    </div>
-                    <div style="background:#f8fafc; padding:10px; border-radius:8px;">
-                        <div class="bcra-label">Impagos / Pend.</div>
-                        <b style="font-size:16px; margin-top:2px; display:block; color:{'#991b1b' if lib['pending'] > 0 else '#0f172a'};">{lib['pending']}</b>
-                    </div>
-                </div>
-            </div>
-            """
-            st.markdown(drawer_html, unsafe_allow_html=True)
+            drawer_html = (
+                f"<div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;'>"
+                f"<h3 style='margin:0 0 2px 0; font-size:17px; font-weight:700; color:#0f172a;'>{lib['denominacion']}</h3>"
+                f"<div style='font-family:monospace; color:#64748b; font-size:13px; margin-bottom:12px;'>{lib['cuit']}</div>"
+                f"<span style='display:inline-block; padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:700; background:{pill_bg_d}; color:{pill_tx_d};'>{lib['risk_label']}</span>"
+                f"<div style='display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px;'>"
+                f"<div style='background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #edf2f7;'><div style='font-size:10px; text-transform:uppercase; font-weight:600; color:#64748b;'>Peor Situación</div><b style='font-size:16px; color:#0f172a; margin-top:2px; display:block;'>{lib['worst']}</b></div>"
+                f"<div style='background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #edf2f7;'><div style='font-size:10px; text-transform:uppercase; font-weight:600; color:#64748b;'>Deuda Total</div><b style='font-size:16px; color:#0f172a; margin-top:2px; display:block;'>{fmt_ars(lib['debt'])}</b></div>"
+                f"<div style='background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #edf2f7;'><div style='font-size:10px; text-transform:uppercase; font-weight:600; color:#64748b;'>Total Rechazos</div><b style='font-size:16px; color:#0f172a; margin-top:2px; display:block;'>{lib['rejected']}</b></div>"
+                f"<div style='background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #edf2f7;'><div style='font-size:10px; text-transform:uppercase; font-weight:600; color:#64748b;'>Impagos / Pend.</div><b style='font-size:16px; margin-top:2px; display:block; color:{'#991b1b' if lib['pending'] > 0 else '#0f172a'};'>{lib['pending']}</b></div>"
+                f"</div></div>"
+            )
+            components.html(drawer_html, height=210)
 
-            st.write("")
+            # Alertas y diagnósticos
             for al in lib["alerts"]:
                 bg_al = "#fee2e2" if lib["risk"] == "bad" else ("#fef9c3" if lib["risk"] == "warn" else "#dcfce7")
                 tx_al = "#991b1b" if lib["risk"] == "bad" else ("#854d0e" if lib["risk"] == "warn" else "#166534")
