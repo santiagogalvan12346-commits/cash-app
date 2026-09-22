@@ -271,13 +271,14 @@ st.title("Gestión de Tesorería — Planes de Pago")
 st.caption(f"L2 For Drink SA · Unidad activa: **{sede_global}** · Flujo de caja en tiempo real.")
 
 if st.session_state.is_admin:
-    tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_export = st.tabs([
+    tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_bcra, tab_export = st.tabs([
         "📊 Panel Ejecutivo",
         "🗓️ Matriz Semanal",
         "🪜 Detalle de Escaleras",
         "⚡ Conciliación Rápida",
         "➕ Cargar Nueva Escalera",
         "📝 Registro Manual (ABM)",
+        "🔍 Analisi BCRA",
         "⬇️ Exportar",
     ])
 else:
