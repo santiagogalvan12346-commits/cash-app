@@ -965,16 +965,16 @@ if modulo_activo == "💵 Gestión de Tesorería":
 elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
     col_t_bcra, col_btns_bcra = st.columns([3, 1.2])
     with col_t_bcra:
-        st.title("Analizador de Libradores BCRA")[cite: 9]
-        st.caption("Evaluación crediticia de CUITs en Central de Deudores y Cheques Rechazados en tiempo real.")[cite: 9]
+        st.title("Analizador de Libradores BCRA")
+        st.caption("Evaluación crediticia de CUITs en Central de Deudores y Cheques Rechazados en tiempo real.")
 
     with col_btns_bcra:
         st.write("")
         b_demo, b_clean = st.columns(2)
-        if b_demo.button("Cargar demo", use_container_width=True):[cite: 9]
-            st.session_state["bcra_input_val"] = "30715316915\n20222645019\n30528011493"[cite: 9]
+        if b_demo.button("Cargar demo", use_container_width=True):
+            st.session_state["bcra_input_val"] = "30715316915\n20222645019\n30528011493"
             st.rerun()
-        if b_clean.button("Limpiar", use_container_width=True):[cite: 9]
+        if b_clean.button("Limpiar", use_container_width=True):
             st.session_state["bcra_input_val"] = ""
             st.session_state["resultados_bcra"] = []
             st.rerun()
@@ -994,7 +994,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
     with c_box_btn:
         st.write("")
         st.write("")
-        btn_consultar_bcra = st.button("🔎 Consultar BCRA", type="primary", use_container_width=True)[cite: 9]
+        btn_consultar_bcra = st.button("🔎 Consultar BCRA", type="primary", use_container_width=True)
 
     if btn_consultar_bcra and cuits_raw.strip():
         lista_cuits = core.parse_cuits_input(cuits_raw)
@@ -1011,12 +1011,12 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             peso = {"bad": 0, "warn": 1, "ok": 2}
             res_bcra.sort(key=lambda x: peso.get(x["risk"], 3))
             st.session_state["resultados_bcra"] = res_bcra
-            st.session_state["bcra_status_msg"] = f"✅ Consulta finalizada ({len(res_bcra)} libradores evaluados)."[cite: 9]
+            st.session_state["bcra_status_msg"] = f"✅ Consulta finalizada ({len(res_bcra)} libradores evaluados)."
 
     if "bcra_status_msg" in st.session_state:
         st.caption(st.session_state["bcra_status_msg"])
 
-    # Tarjetas de Resumen (Exactas al diseño HTML)
+    # Tarjetas de Resumen
     data_bcra = st.session_state.get("resultados_bcra", [])
     n_tot = len(data_bcra)
     n_ok = len([x for x in data_bcra if x["risk"] == "ok"])
@@ -1025,13 +1025,13 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Libradores Evaluados</div><div class='bcra-val'>{n_tot}</div></div>", unsafe_allow_html=True)[cite: 9]
+        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Libradores Evaluados</div><div class='bcra-val'>{n_tot}</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Sin Alertas</div><div class='bcra-val' style='color:#166534;'>{n_ok}</div></div>", unsafe_allow_html=True)[cite: 9]
+        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Sin Alertas</div><div class='bcra-val' style='color:#166534;'>{n_ok}</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Revisar</div><div class='bcra-val' style='color:#854d0e;'>{n_warn}</div></div>", unsafe_allow_html=True)[cite: 9]
+        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Revisar</div><div class='bcra-val' style='color:#854d0e;'>{n_warn}</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Alertas / Rechazar</div><div class='bcra-val' style='color:#991b1b;'>{n_bad}</div></div>", unsafe_allow_html=True)[cite: 9]
+        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Alertas / Rechazar</div><div class='bcra-val' style='color:#991b1b;'>{n_bad}</div></div>", unsafe_allow_html=True)
 
     st.write("")
 
@@ -1047,20 +1047,14 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 </div>
                 """,
                 unsafe_allow_html=True,
-            )[cite: 9]
+            )
 
-            # Construcción de la tabla estilizada
             html_rows = ""
             for idx, x in enumerate(data_bcra):
-                # Badge de situación
                 sit_val = x["worst"]
                 badge_class = "badge-sit-1" if sit_val in (0, 1) else ("badge-sit-2" if sit_val == 2 else "badge-sit-bad")
-                
-                # Pill de estado
                 pill_class = "pill-alerta" if x["risk"] == "bad" else ("pill-revisar" if x["risk"] == "warn" else "pill-ok")
-
-                # Formateo de impagos
-                imp_text = f"<span style='color:#991b1b; font-weight:700;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#64748b;'>(0 impagos)</span>"[cite: 9]
+                imp_text = f"<span style='color:#991b1b; font-weight:700;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#64748b;'>(0 impagos)</span>"
 
                 html_rows += f"""
                 <tr style="border-bottom: 1px solid #f1f5f9; padding: 10px 0;">
@@ -1101,7 +1095,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 </table>
             </div>
             """
-            st.markdown(tabla_completa_html, unsafe_allow_html=True)[cite: 9]
+            st.markdown(tabla_completa_html, unsafe_allow_html=True)
 
         with col_grid_drawer:
             st.markdown(
@@ -1111,14 +1105,13 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 </div>
                 """,
                 unsafe_allow_html=True,
-            )[cite: 9]
+            )
 
             opciones_nombres = [f"{x['denominacion']} ({x['cuit']})" for x in data_bcra]
             sel_lib = st.selectbox("Seleccionar para inspeccionar:", opciones_nombres, label_visibility="collapsed", key="sel_drawer_lib")
             idx_sel = opciones_nombres.index(sel_lib)
             lib = data_bcra[idx_sel]
 
-            # Ficha visual idéntica a la imagen
             color_badge = "pill-alerta" if lib["risk"] == "bad" else ("pill-revisar" if lib["risk"] == "warn" else "pill-ok")
 
             drawer_html = f"""
@@ -1147,9 +1140,8 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 </div>
             </div>
             """
-            st.markdown(drawer_html, unsafe_allow_html=True)[cite: 9]
+            st.markdown(drawer_html, unsafe_allow_html=True)
 
-            # Diagnósticos y Rechazos
             st.write("")
             for al in lib["alerts"]:
                 bg_al = "#fee2e2" if lib["risk"] == "bad" else ("#fef9c3" if lib["risk"] == "warn" else "#dcfce7")
@@ -1160,7 +1152,6 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 st.markdown("<small style='font-weight:700; text-transform:uppercase; color:#64748b;'>Últimos 3 Cheques Rechazados</small>", unsafe_allow_html=True)
                 for ch in lib["last3"]:
                     f_ch = str(ch.get("fechaRechazo", "—")).split("T")[0]
-                    # Formato dd-mm-aaaa
                     if "-" in f_ch:
                         p_f = f_ch.split("-")
                         if len(p_f) == 3 and len(p_f[0]) == 4:
