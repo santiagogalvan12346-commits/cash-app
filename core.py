@@ -567,10 +567,16 @@ def fetch_bcra_data(cuit: str) -> dict:
             "last3": [],
         }
 # ---------------------------------------------------------------------------
-# Módulo de Consulta y Scoring BCRA
+# Módulo de Consulta y Scoring BCRA (Versión Resiliente / Anti-Rate-Limit)
 # ---------------------------------------------------------------------------
 import re
+import time
 import requests
+
+HEADERS_BCRA = {
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+}
 
 
 def clean_cuit(val: str) -> str:
@@ -585,56 +591,60 @@ def parse_cuits_input(text: str) -> list[str]:
     return sorted(list({c for c in cleaned if len(c) == 11}))
 
 
+def _safe_get_bcra(url: str, max_retries: int = 2) -> tuple[int, dict]:
+    """Ejecuta petición con User-Agent y reintentos ante saturación."""
+    for attempt in range(max_retries + 1):
+        try:
+            r = requests.get(url, headers=HEADERS_BCRA, timeout=10)
+            if r.status_code == 200:
+                return 200, r.json().get("results", {})
+            elif r.status_code == 404:
+                return 404, {}
+            elif r.status_code in (429, 500, 502, 503, 504) and attempt < max_retries:
+                time.sleep(1.0)  # Pausa de espera ante congestión del BCRA
+                continue
+            else:
+                return r.status_code, {}
+        except Exception:
+            if attempt < max_retries:
+                time.sleep(1.0)
+                continue
+            return 500, {}
+    return 500, {}
+
+
 def fetch_bcra_data(cuit: str) -> dict:
-    """Consulta la API del BCRA para Central de Deudores y Cheques Rechazados."""
-    base_headers = {"Accept": "application/json"}
+    """Consulta la API del BCRA respetando el rate-limit del servidor."""
+    # Pausa de cortesía para no disparar ráfagas concurrentes
+    time.sleep(0.35)
 
     # 1. Central de Deudores
-    deuda_data = None
-    deuda_status = "ok"
-    try:
-        r_deuda = requests.get(
-            f"https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/{cuit}",
-            headers=base_headers,
-            timeout=8,
-        )
-        if r_deuda.status_code == 200:
-            deuda_data = r_deuda.json().get("results", {})
-        elif r_deuda.status_code == 404:
-            deuda_status = "none"
-        else:
-            deuda_status = "error"
-    except Exception:
-        deuda_status = "error"
+    url_deuda = f"https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/{cuit}"
+    code_deuda, deuda_data = _safe_get_bcra(url_deuda)
 
     # 2. Cheques Rechazados
-    checks = []
-    try:
-        r_checks = requests.get(
-            f"https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/ChequesRechazados/{cuit}",
-            headers=base_headers,
-            timeout=8,
-        )
-        if r_checks.status_code == 200:
-            cr = r_checks.json().get("results", {})
-            causales = cr.get("causales", [])
-            for c in causales:
-                causal_nombre = c.get("causal", "Sin causal")
-                for e in c.get("entidades", []):
-                    entidad_nombre = e.get("entidad", "Entidad no informada")
-                    for d in e.get("detalle", []):
-                        checks.append({
-                            "fechaRechazo": d.get("fechaRechazo", ""),
-                            "fechaPago": d.get("fechaPago", ""),
-                            "monto": float(d.get("monto", 0.0) or 0.0),
-                            "causal": causal_nombre,
-                            "entidad": entidad_nombre,
-                        })
-    except Exception:
-        checks = []
+    time.sleep(0.2)
+    url_checks = f"https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/ChequesRechazados/{cuit}"
+    code_checks, cr_data = _safe_get_bcra(url_checks)
 
-    # 3. Procesar perfil crediticio
-    if deuda_status == "ok" and deuda_data:
+    checks = []
+    if code_checks == 200 and cr_data:
+        causales = cr_data.get("causales", [])
+        for c in causales:
+            causal_nombre = c.get("causal", "Sin causal")
+            for e in c.get("entidades", []):
+                entidad_nombre = e.get("entidad", "Entidad no informada")
+                for d in e.get("detalle", []):
+                    checks.append({
+                        "fechaRechazo": d.get("fechaRechazo", ""),
+                        "fechaPago": d.get("fechaPago", ""),
+                        "monto": float(d.get("monto", 0.0) or 0.0),
+                        "causal": causal_nombre,
+                        "entidad": entidad_nombre,
+                    })
+
+    # Procesar perfil crediticio
+    if code_deuda == 200 and deuda_data:
         periods = deuda_data.get("periodos", [])
         latest = periods[0] if periods else {}
         ents = latest.get("entidades", [])
@@ -645,7 +655,7 @@ def fetch_bcra_data(cuit: str) -> dict:
         pending = len([c for c in checks if not c.get("fechaPago")])
         pending_amount = sum([c["monto"] for c in checks if not c.get("fechaPago")])
 
-        # Criterio de semáforo
+        # Criterio estricto de semáforo acordado
         if worst >= 3 or pending > 0 or rejected > 5:
             risk = "bad"
             rt = "ALERTA"
@@ -672,7 +682,6 @@ def fetch_bcra_data(cuit: str) -> dict:
         if not alerts:
             alerts.append("Sin señales negativas: Situación normal y sin cheques rechazados.")
 
-        # Ordenar últimos 3 cheques por fecha
         sorted_checks = sorted(checks, key=lambda x: str(x.get("fechaRechazo", "")), reverse=True)
         last3 = sorted_checks[:3]
 
@@ -696,7 +705,8 @@ def fetch_bcra_data(cuit: str) -> dict:
             "last3": last3,
         }
 
-    elif deuda_status == "none":
+    elif code_deuda == 404:
+        # CUIT válido pero sin deuda bancaria registrada
         rej_count = len(checks)
         pen_count = len([c for c in checks if not c.get("fechaPago")])
         r = "ok"
@@ -721,6 +731,7 @@ def fetch_bcra_data(cuit: str) -> dict:
             "last3": checks[:3],
         }
     else:
+        # Error de conexión real o bloqueo
         return {
             "cuit": cuit,
             "denominacion": f"CUIT {cuit}",
@@ -731,7 +742,7 @@ def fetch_bcra_data(cuit: str) -> dict:
             "rejected": 0,
             "pending": 0,
             "pending_amount": 0.0,
-            "alerts": ["Error de comunicación con los servidores del BCRA."],
+            "alerts": ["Error de comunicación o tiempo de espera agotado con los servidores del BCRA."],
             "banks": [],
             "last3": [],
         }
