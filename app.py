@@ -951,227 +951,645 @@ if modulo_activo == "💵 Gestión de Tesorería":
             st.download_button("⬇️ Descargar Excel Completo", xlsx_data, f"base_pagos_efectivo_{dt.date.today().isoformat()}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
 
 # ===========================================================================
-# MÓDULO 2: ANALIZADOR DE LIBRADORES · BCRA (NATIVO INTEGRADO DARK)
+# MÓDULO 2: ANALIZADOR DE LIBRADORES · BCRA (CLIENT-SIDE FETCH ANTIBLOQUEO)
 # ===========================================================================
 elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
-    col_t_bcra, col_btns_bcra = st.columns([3, 1.2])
-    with col_t_bcra:
-        st.title("Analizador de Libradores BCRA")
-        st.caption("Evaluación crediticia de CUITs en Central de Deudores y Cheques Rechazados en tiempo real.")
+    import streamlit.components.v1 as components
 
-    with col_btns_bcra:
-        st.write("")
-        b_demo, b_clean = st.columns(2)
-        if b_demo.button("Cargar demo", use_container_width=True):
-            st.session_state["bcra_input_val"] = "30715316915\n20222645019\n30528011493"
-            st.rerun()
-        if b_clean.button("Limpiar", use_container_width=True):
-            st.session_state["bcra_input_val"] = ""
-            st.session_state["resultados_bcra"] = []
-            st.session_state["bcra_status_msg"] = None
-            st.rerun()
+    st.title("Analizador de Libradores BCRA")
+    st.caption("Evaluación crediticia de CUITs en Central de Deudores y Cheques Rechazados en tiempo real.")
 
-    input_text_val = st.session_state.get("bcra_input_val", "")
+    # Componente integrado nativo: consulta directa desde el navegador (sin geobloqueo de IP de servidor)
+    bcra_app_html = """
+    <!doctype html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        :root {
+          --bg: #0e1117;
+          --card-bg: #18202a;
+          --card-inner: #1e2634;
+          --border: #2d3748;
+          --border-subtle: #334155;
+          --text-main: #f8fafc;
+          --text-muted: #94a3b8;
+          
+          --bad-bg: #450a0a;
+          --bad-border: #dc2626;
+          --bad-text: #fca5a5;
+          --bad-badge-bg: #7f1d1d;
+          
+          --warn-bg: #451a03;
+          --warn-border: #d97706;
+          --warn-text: #fcd34d;
+          --warn-badge-bg: #78350f;
+          
+          --ok-bg: #064e3b;
+          --ok-border: #059669;
+          --ok-text: #6ee7b7;
+          --ok-badge-bg: #064e3b;
+        }
 
-    c_box_in, c_box_btn = st.columns([3.5, 1])
-    with c_box_in:
-        cuits_raw = st.text_area(
-            "CUITs a evaluar",
-            value=input_text_val,
-            placeholder="Pegá los CUITs (uno por línea o separados por espacio/coma)\nEj:\n30-71649553-8\n30-52801149-3",
-            height=90,
-            label_visibility="collapsed",
-            key="area_cuits_bcra",
-        )
-    with c_box_btn:
-        st.write("")
-        st.write("")
-        btn_consultar_bcra = st.button("🔎 Consultar BCRA", type="primary", use_container_width=True)
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          background: transparent;
+          color: var(--text-main);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          font-size: 13.5px;
+        }
 
-    if btn_consultar_bcra and cuits_raw.strip():
-        lista_cuits = core.parse_cuits_input(cuits_raw)
-        if not lista_cuits:
-            st.warning("No se detectaron CUITs válidos de 11 dígitos.")
-        else:
-            prog = st.progress(0, text="Iniciando conexión con BCRA...")
-            res_bcra = []
-            for idx, c in enumerate(lista_cuits):
-                prog.progress((idx + 1) / len(lista_cuits), text=f"Consultando CUIT {c} ({idx + 1}/{len(lista_cuits)})...")
-                res_bcra.append(core.fetch_bcra_data(c))
-            prog.empty()
+        .input-row {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
 
-            peso = {"bad": 0, "warn": 1, "ok": 2}
-            res_bcra.sort(key=lambda x: peso.get(x["risk"], 3))
-            st.session_state["resultados_bcra"] = res_bcra
-            st.session_state["bcra_status_msg"] = f"✅ Consulta finalizada ({len(res_bcra)} libradores evaluados)."
+        textarea {
+          flex: 1;
+          height: 85px;
+          background: #18202a;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--text-main);
+          padding: 10px 12px;
+          font-family: monospace;
+          font-size: 13px;
+          resize: none;
+        }
+        textarea:focus { outline: 1px solid #38bdf8; border-color: #38bdf8; }
 
-    if st.session_state.get("bcra_status_msg"):
-        st.caption(st.session_state["bcra_status_msg"])
+        .btn-col {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-width: 170px;
+        }
 
-    data_bcra = st.session_state.get("resultados_bcra", [])
-    n_tot = len(data_bcra)
-    n_ok = len([x for x in data_bcra if x["risk"] == "ok"])
-    n_warn = len([x for x in data_bcra if x["risk"] == "warn"])
-    n_bad = len([x for x in data_bcra if x["risk"] == "bad"])
+        button {
+          padding: 9px 14px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: #1e2634;
+          color: var(--text-main);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        button:hover { background: #2b3547; }
+        button.primary {
+          background: #ef4444;
+          border-color: #dc2626;
+          color: #ffffff;
+        }
+        button.primary:hover { background: #dc2626; }
 
-    # Tarjetas de Resumen en la paleta oscura corporativa
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Libradores Evaluados</div><div class='bcra-val-dark' style='color:#f8fafc;'>{n_tot}</div></div>", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Sin Alertas</div><div class='bcra-val-dark' style='color:#10b981;'>{n_ok}</div></div>", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Revisar</div><div class='bcra-val-dark' style='color:#f59e0b;'>{n_warn}</div></div>", unsafe_allow_html=True)
-    with c4:
-        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Alertas / Rechazar</div><div class='bcra-val-dark' style='color:#ef4444;'>{n_bad}</div></div>", unsafe_allow_html=True)
+        #apiStatus {
+          font-size: 12.5px;
+          color: var(--text-muted);
+          margin-bottom: 16px;
+        }
 
-    st.write("")
+        .summary-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+          margin-bottom: 20px;
+        }
 
-    if data_bcra:
-        col_grid_main, col_grid_drawer = st.columns([1.6, 1.1])
+        .summary-card {
+          background: var(--card-bg);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 14px 18px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
 
-        with col_grid_main:
-            st.markdown(
-                """
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <b style="font-size:15px; color:#f8fafc;">Listado de Libradores</b>
-                    <small style="color:#94a3b8;">Prioridad: Alerta → Revisar → Sin Alertas</small>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        .label-xs {
+          font-size: 10.5px;
+          text-transform: uppercase;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          color: var(--text-muted);
+        }
 
-            # Tabla nativa sin iframes, perfectamente adaptada al modo oscuro
-            rows_html = []
-            for x in data_bcra:
-                sit_val = x["worst"]
-                if sit_val in (0, 1):
-                    badge_style = "background:#064e3b; color:#34d399; border: 1px solid #059669;"
-                elif sit_val == 2:
-                    badge_style = "background:#78350f; color:#fbbf24; border: 1px solid #d97706;"
-                else:
-                    badge_style = "background:#7f1d1d; color:#f87171; border: 1px solid #dc2626;"
+        .val-large {
+          font-size: 26px;
+          font-weight: 800;
+          margin-top: 4px;
+          line-height: 1.1;
+        }
 
-                if x["risk"] == "bad":
-                    pill_style = "background:#7f1d1d; color:#fecaca; border:1px solid #dc2626;"
-                elif x["risk"] == "warn":
-                    pill_style = "background:#78350f; color:#fde68a; border:1px solid #d97706;"
-                else:
-                    pill_style = "background:#064e3b; color:#a7f3d0; border:1px solid #059669;"
+        .main-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1.55fr) 1.1fr;
+          gap: 18px;
+          align-items: start;
+        }
 
-                imp_txt = f"<span style='color:#ef4444; font-weight:700;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#94a3b8;'>(0 impagos)</span>"
+        .card-box {
+          background: var(--card-bg);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 14px 18px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
 
-                row_str = (
-                    f"<tr style='border-bottom: 1px solid #2d3748;'>"
-                    f"<td style='padding:12px 10px; color:#f8fafc;'><b>{x['denominacion']}</b><br><small style='font-family:monospace; color:#94a3b8;'>{x['cuit']}</small></td>"
-                    f"<td style='text-align:center; padding:12px 6px;'><span style='display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; font-weight:700; font-size:12px; {badge_style}'>{sit_val}</span></td>"
-                    f"<td style='padding:12px 10px; font-weight:700; color:#f8fafc;'>{fmt_ars(x['debt'])}</td>"
-                    f"<td style='padding:12px 10px; color:#f8fafc;'>{x['rejected']} {imp_txt}</td>"
-                    f"<td style='padding:12px 10px; text-align:right;'><span style='display:inline-block; padding:4px 10px; border-radius:9999px; font-size:11px; font-weight:700; {pill_style}'>{x['risk_label']}</span></td>"
-                    f"</tr>"
-                )
-                rows_html.append(row_str)
+        .header-title {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+        }
 
-            tabla_dark_html = (
-                f"<div class='bcra-table-box'>"
-                f"<table style='width:100%; border-collapse:collapse; font-size:13px;'>"
-                f"<thead><tr style='border-bottom:1px solid #334155; color:#94a3b8; font-size:11px; text-transform:uppercase;'>"
-                f"<th style='padding:10px; text-align:left;'>Librador / Denominación</th>"
-                f"<th style='padding:10px; text-align:center;'>Peor Sit.</th>"
-                f"<th style='padding:10px; text-align:left;'>Deuda Bancaria</th>"
-                f"<th style='padding:10px; text-align:left;'>Rechazos (Pend.)</th>"
-                f"<th style='padding:10px; text-align:right;'>Estado</th>"
-                f"</tr></thead>"
-                f"<tbody>{''.join(rows_html)}</tbody>"
-                f"</table></div>"
-            )
-            st.markdown(tabla_dark_html, unsafe_allow_html=True)
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+        }
 
-        with col_grid_drawer:
-            st.markdown(
-                """
-                <div style="margin-bottom:8px;">
-                    <span class="bcra-label-dark">Ficha del Librador</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        th {
+          padding: 9px 8px;
+          text-align: left;
+          color: var(--text-muted);
+          font-size: 10.5px;
+          text-transform: uppercase;
+          border-bottom: 1px solid var(--border-subtle);
+        }
 
-            opciones_nombres = [f"{x['denominacion']} ({x['cuit']})" for x in data_bcra]
-            sel_lib = st.selectbox("Seleccionar para inspeccionar:", opciones_nombres, label_visibility="collapsed", key="sel_drawer_lib")
-            idx_sel = opciones_nombres.index(sel_lib)
-            lib = data_bcra[idx_sel]
+        td {
+          padding: 11px 8px;
+          border-bottom: 1px solid #232c3d;
+          vertical-align: middle;
+        }
 
-            if lib["risk"] == "bad":
-                badge_d_style = "background:#7f1d1d; color:#fecaca; border:1px solid #dc2626;"
-            elif lib["risk"] == "warn":
-                badge_d_style = "background:#78350f; color:#fde68a; border:1px solid #d97706;"
-            else:
-                badge_d_style = "background:#064e3b; color:#a7f3d0; border:1px solid #059669;"
+        tr { cursor: pointer; }
+        tr:hover { background: #1f2937; }
+        tr.active-row { background: #222d3d; }
 
-            # Tarjeta de Ficha nativa en Dark Mode
-            drawer_dark_html = (
-                f"<div class='bcra-drawer-box'>"
-                f"<h3 style='margin:0 0 2px 0; font-size:18px; font-weight:700; color:#f8fafc;'>{lib['denominacion']}</h3>"
-                f"<div style='font-family:monospace; color:#94a3b8; font-size:13px; margin-bottom:12px;'>{lib['cuit']}</div>"
-                f"<span style='display:inline-block; padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:700; {badge_d_style}'>{lib['risk_label']}</span>"
-                f"<div style='display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px;'>"
-                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Peor Situación</div><b style='font-size:16px; color:#f8fafc; margin-top:2px; display:block;'>{lib['worst']}</b></div>"
-                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Deuda Total</div><b style='font-size:16px; color:#f8fafc; margin-top:2px; display:block;'>{fmt_ars(lib['debt'])}</b></div>"
-                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Total Rechazos</div><b style='font-size:16px; color:#f8fafc; margin-top:2px; display:block;'>{lib['rejected']}</b></div>"
-                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Impagos / Pend.</div><b style='font-size:16px; margin-top:2px; display:block; color:{'#ef4444' if lib['pending'] > 0 else '#f8fafc'};'>{lib['pending']}</b></div>"
-                f"</div></div>"
-            )
-            st.markdown(drawer_dark_html, unsafe_allow_html=True)
+        .badge-sit {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          font-weight: 700;
+          font-size: 11.5px;
+        }
+        .sit-1 { background: var(--ok-badge-bg); color: var(--ok-text); border: 1px solid var(--ok-border); }
+        .sit-2 { background: var(--warn-badge-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
+        .sit-bad { background: var(--bad-badge-bg); color: var(--bad-text); border: 1px solid var(--bad-border); }
 
-            # Diagnósticos y Alertas
-            st.write("")
-            for al in lib["alerts"]:
-                if lib["risk"] == "bad":
-                    al_style = "background:#450a0a; color:#fca5a5; border-left: 3px solid #ef4444;"
-                elif lib["risk"] == "warn":
-                    al_style = "background:#451a03; color:#fcd34d; border-left: 3px solid #f59e0b;"
-                else:
-                    al_style = "background:#064e3b; color:#6ee7b7; border-left: 3px solid #10b981;"
-                st.markdown(f"<div style='padding:8px 12px; border-radius:6px; font-size:12px; font-weight:500; margin-bottom:6px; {al_style}'>{al}</div>", unsafe_allow_html=True)
+        .pill {
+          display: inline-block;
+          padding: 3px 9px;
+          border-radius: 9999px;
+          font-size: 11px;
+          font-weight: 700;
+        }
+        .pill.bad { background: var(--bad-bg); color: var(--bad-text); border: 1px solid var(--bad-border); }
+        .pill.warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
+        .pill.ok { background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-border); }
 
-            if lib["last3"]:
-                st.markdown("<small style='font-weight:700; text-transform:uppercase; color:#94a3b8;'>Últimos 3 Cheques Rechazados</small>", unsafe_allow_html=True)
-                for ch in lib["last3"]:
-                    f_ch = str(ch.get("fechaRechazo", "—")).split("T")[0]
-                    if "-" in f_ch:
-                        p_f = f_ch.split("-")
-                        if len(p_f) == 3 and len(p_f[0]) == 4:
-                            f_ch = f"{p_f[2]}-{p_f[1]}-{p_f[0]}"
-                    m_ch = fmt_ars(ch.get("monto", 0))
-                    estado_ch = "<span style='color:#34d399; font-weight:700;'>Pagado</span>" if ch.get("fechaPago") else "<span style='color:#f87171; font-weight:700;'>Impago</span>"
-                    st.markdown(f"<div style='font-size:12px; border-bottom:1px solid #334155; padding:5px 0; color:#cbd5e1;'>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{estado_ch}]</div>", unsafe_allow_html=True)
+        .drawer-metrics {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          margin-top: 14px;
+        }
 
-        # Módulo WhatsApp
-        st.divider()
-        st.subheader("📱 Mensaje de sugerencia para WhatsApp")
-        rechazados = [x for x in data_bcra if x["risk"] == "bad"]
-        revisar = [x for x in data_bcra if x["risk"] == "warn"]
+        .metric-cell {
+          background: var(--card-inner);
+          border: 1px solid var(--border-subtle);
+          border-radius: 8px;
+          padding: 9px 12px;
+        }
+        .metric-cell b {
+          display: block;
+          font-size: 15px;
+          margin-top: 2px;
+          color: var(--text-main);
+        }
 
-        if rechazados:
-            wa_txt = "Hola! Te paso el resultado de la tanda analizada:\n\n"
-            wa_txt += "❌ *RECHAZAR los siguientes libradores:*\n"
-            for r in rechazados:
-                motivo = f"Sit: {r['worst']}"
-                if r['pending'] > 0:
-                    motivo += f" | {r['pending']} cheques impagos"
-                if r['rejected'] > 5:
-                    motivo += f" | {r['rejected']} rechazos totales"
-                wa_txt += f"• *{r['denominacion']}* (CUIT {r['cuit']}) - {motivo}\n"
-            if revisar:
-                wa_txt += "\n⚠️ *A REVISAR antes de recibir:*\n"
-                for rv in revisar:
-                    wa_txt += f"• {rv['denominacion']} (Sit: {rv['worst']})\n"
-        elif revisar:
-            wa_txt = "Hola! De la tanda analizada no hay alertas críticas, pero sugiero *revisar*:\n\n"
-            for rv in revisar:
-                wa_txt += f"• *{rv['denominacion']}* (CUIT {rv['cuit']}) - Sit: {rv['worst']}\n"
-        else:
-            wa_txt = "Hola! Todos los libradores analizados están en condiciones *OK (Sin Alertas)*. ✅"
+        .alert-block {
+          padding: 8px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          margin-top: 6px;
+        }
+        .alert-block.bad { background: var(--bad-bg); color: var(--bad-text); border-left: 3px solid var(--bad-border); }
+        .alert-block.warn { background: var(--warn-bg); color: var(--warn-text); border-left: 3px solid var(--warn-border); }
+        .alert-block.ok { background: var(--ok-bg); color: var(--ok-text); border-left: 3px solid var(--ok-border); }
 
-        st.text_area("Copia el texto directamente para enviar:", value=wa_txt, height=130)
+        .wa-box {
+          margin-top: 20px;
+          background: var(--card-bg);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 16px 20px;
+        }
+
+        textarea.wa-area {
+          width: 100%;
+          height: 120px;
+          margin-top: 10px;
+          background: var(--card-inner);
+        }
+      </style>
+    </head>
+    <body>
+
+      <div class="input-row">
+        <textarea id="txtCuits" placeholder="Pegá los CUITs (uno por línea o separados por coma/espacio)&#10;Ej:&#10;30-71649553-8&#10;30-52801149-3"></textarea>
+        <div class="btn-col">
+          <button class="primary" onclick="consultarBCRA()">🔎 Consultar BCRA</button>
+          <div style="display:flex; gap:6px;">
+            <button style="flex:1" onclick="cargarDemo()">Demo</button>
+            <button style="flex:1" onclick="limpiar()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="apiStatus">Pegá los CUITs y presioná <b>Consultar BCRA</b>.</div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="label-xs">Libradores Evaluados</div>
+          <div class="val-large" id="sumTotal">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="label-xs">Sin Alertas</div>
+          <div class="val-large" style="color:#10b981;" id="sumOk">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="label-xs">Revisar</div>
+          <div class="val-large" style="color:#f59e0b;" id="sumWarn">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="label-xs">Alertas / Rechazar</div>
+          <div class="val-large" style="color:#ef4444;" id="sumBad">0</div>
+        </div>
+      </div>
+
+      <div class="main-layout">
+        <!-- Tabla -->
+        <div class="card-box">
+          <div class="header-title">
+            <b style="font-size:14.5px;">Listado de Libradores</b>
+            <span style="font-size:11.5px; color:var(--text-muted);">Prioridad: Alerta → Revisar → Sin Alertas</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Librador / Denominación</th>
+                <th style="text-align:center;">Peor Sit.</th>
+                <th>Deuda Bancaria</th>
+                <th>Rechazos (Pend.)</th>
+                <th style="text-align:right;">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="rowsBody">
+              <tr><td colspan="5" style="text-align:center; padding:28px; color:var(--text-muted);">No hay datos cargados aún.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Ficha Lateral -->
+        <div class="card-box" id="drawer">
+          <div class="label-xs">Ficha del Librador</div>
+          <h3 style="margin:4px 0 2px; font-size:17px;">Seleccioná un librador</h3>
+          <div style="font-size:12px; color:var(--text-muted);">Hacé clic en cualquier fila para inspeccionar detalle bancario y cheques.</div>
+        </div>
+      </div>
+
+      <div class="wa-box" id="waContainer" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <b style="font-size:14px;">📱 Mensaje de sugerencia para WhatsApp</b>
+          <button onclick="copiarWhatsApp()">📋 Copiar para WhatsApp</button>
+        </div>
+        <textarea class="wa-area" id="waMessage" readonly></textarea>
+      </div>
+
+      <script>
+        const DEMO = [
+          "30719231116",
+          "30711743711",
+          "30719168295",
+          "20222645019",
+          "20165261624",
+          "30717693392"
+        ];
+
+        function fmtArs(n) {
+          return "$ " + Math.round(n || 0).toLocaleString("es-AR");
+        }
+
+        function cleanCuit(v) {
+          return String(v || "").replace(/\\D/g, "").slice(0, 11);
+        }
+
+        function parseDateCustom(dStr) {
+          if (!dStr) return "—";
+          const c = String(dStr).split("T")[0].trim();
+          if (/^\\d{4}-\\d{2}-\\d{2}$/.test(c)) {
+            const p = c.split("-");
+            return `${p[2]}-${p[1]}-${p[0]}`;
+          }
+          return c;
+        }
+
+        function parseCuits() {
+          const raw = document.getElementById("txtCuits").value;
+          const items = raw.split(/[\\n,; \\t]+/).map(x => cleanCuit(x)).filter(x => x.length === 11);
+          return [...new Set(items)];
+        }
+
+        async function bcraFetch(url) {
+          const r = await fetch(url, { method: "GET", headers: { "Accept": "application/json" } });
+          let data = null;
+          try { data = await r.json(); } catch(e) {}
+          if (!r.ok) {
+            const err = new Error(r.statusText || ("HTTP " + r.status));
+            err.status = r.status;
+            throw err;
+          }
+          return data;
+        }
+
+        function flattenChecks(obj) {
+          const out = [];
+          const causales = (obj && obj.results && obj.results.causales) || [];
+          causales.forEach(c => {
+            (c.entidades || []).forEach(e => {
+              (e.detalle || []).forEach(d => {
+                out.push(Object.assign({}, d, { causal: c.causal, entidad: e.entidad }));
+              });
+            });
+          });
+          return out;
+        }
+
+        function buildRiskProfile(cuit, deuda, checks) {
+          const res = deuda && deuda.results ? deuda.results : {};
+          const periods = res.periodos || [];
+          const latest = periods[0] || {};
+          const ents = latest.entidades || [];
+
+          const worst = ents.length ? Math.max(...ents.map(e => Number(e.situacion) || 0)) : 0;
+          const debt = ents.reduce((a, e) => a + (Number(e.monto) || 0) * 1000, 0);
+          const rejected = checks.length;
+          const pending = checks.filter(c => !c.fechaPago).length;
+
+          let risk = "ok", rt = "SIN ALERTAS";
+          if (worst >= 3 || pending > 0 || rejected > 5) {
+            risk = "bad"; rt = "ALERTA";
+          } else if (worst === 2 || (rejected >= 1 && rejected <= 5)) {
+            risk = "warn"; rt = "REVISAR";
+          }
+
+          const alerts = [];
+          if (worst >= 3) alerts.push(`Peor situación informada: ${worst} (Deterioro / Riesgo alto).`);
+          else if (worst === 2) alerts.push("Registra entidad(es) en Situación 2 (Seguimiento especial).");
+
+          if (pending > 0) alerts.push(`Posee ${pending} cheque(s) rechazado(s) PENDIENTE(S) de pago.`);
+          if (rejected > 5) alerts.push(`Historial crítico de cheques: registra ${rejected} rechazos en total.`);
+          else if (rejected > 0 && pending === 0) alerts.push(`Registra ${rejected} rechazo(s) histórico(s), pero figuran cancelados/pagados.`);
+          if (!alerts.length) alerts.push("Sin señales negativas: Situación normal y sin cheques rechazados.");
+
+          const sortedChecks = [...checks].sort((a, b) => (b.fechaRechazo || "").localeCompare(a.fechaRechazo || ""));
+
+          return {
+            cuit: cuit,
+            denominacion: res.denominacion || ("Librador " + cuit),
+            risk: risk,
+            risk_label: rt,
+            worst: worst,
+            debt: debt,
+            rejected: rejected,
+            pending: pending,
+            alerts: alerts,
+            last3: sortedChecks.slice(0, 3)
+          };
+        }
+
+        async function consultarBCRA() {
+          const status = document.getElementById("apiStatus");
+          const cuits = parseCuits();
+
+          if (!cuits.length) {
+            status.textContent = "⚠️ No ingresaste ningún CUIT válido de 11 dígitos.";
+            return;
+          }
+
+          status.textContent = `Consultando BCRA: 0/${cuits.length}...`;
+          const results = [];
+
+          for (let i = 0; i < cuits.length; i++) {
+            const cuit = cuits[i];
+            let deuda = null, checks = [], codeDeuda = "ok";
+
+            try {
+              deuda = await bcraFetch(`https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/${cuit}`);
+            } catch (err) {
+              if (err.status === 404) codeDeuda = "none";
+              else codeDeuda = "error";
+            }
+
+            try {
+              const cr = await bcraFetch(`https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/ChequesRechazados/${cuit}`);
+              checks = flattenChecks(cr);
+            } catch (err) {
+              checks = [];
+            }
+
+            if (codeDeuda === "ok") {
+              results.push(buildRiskProfile(cuit, deuda, checks));
+            } else if (codeDeuda === "none") {
+              const rejCount = checks.length;
+              const penCount = checks.filter(c => !c.fechaPago).length;
+              let r = "ok", rt = "SIN DEUDA BCRA";
+              if (penCount > 0 || rejCount > 5) { r = "bad"; rt = "ALERTA"; }
+              else if (rejCount > 0) { r = "warn"; rt = "REVISAR"; }
+
+              results.push({
+                cuit: cuit,
+                denominacion: "CUIT " + cuit,
+                risk: r,
+                risk_label: rt,
+                worst: 0,
+                debt: 0,
+                rejected: rejCount,
+                pending: penCount,
+                alerts: ["Sin deuda bancaria registrada en Central de Deudores."],
+                last3: checks.slice(0, 3)
+              });
+            } else {
+              results.push({
+                cuit: cuit,
+                denominacion: "CUIT " + cuit,
+                risk: "warn",
+                risk_label: "ERROR CONSULTA",
+                worst: "-",
+                debt: 0,
+                rejected: 0,
+                pending: 0,
+                alerts: ["Error de comunicación con los servidores del BCRA."],
+                last3: []
+              });
+            }
+
+            status.textContent = `Consultando BCRA: ${i + 1}/${cuits.length}...`;
+          }
+
+          results.sort((a, b) => ({ bad: 0, warn: 1, ok: 2 }[a.risk] ?? 3) - ({ bad: 0, warn: 1, ok: 2 }[b.risk] ?? 3));
+          window.DATA_BCRA = results;
+
+          renderView(results);
+          status.textContent = `✅ Consulta finalizada (${results.length} libradores evaluados).`;
+        }
+
+        function renderView(list) {
+          document.getElementById("sumTotal").textContent = list.length;
+          document.getElementById("sumOk").textContent = list.filter(x => x.risk === "ok").length;
+          document.getElementById("sumWarn").textContent = list.filter(x => x.risk === "warn").length;
+          document.getElementById("sumBad").textContent = list.filter(x => x.risk === "bad").length;
+
+          const tbody = document.getElementById("rowsBody");
+          tbody.innerHTML = list.map((item, idx) => {
+            const sitClass = item.worst in [0, 1] ? "sit-1" : (item.worst === 2 ? "sit-2" : "sit-bad");
+            const impTxt = item.pending > 0 
+              ? `<span style="color:#ef4444; font-weight:700;">(${item.pending} impagos)</span>`
+              : `<span style="color:var(--text-muted);">(0 impagos)</span>`;
+
+            return `
+              <tr id="r-${idx}" onclick="selectItem(${idx})">
+                <td>
+                  <b>${item.denominacion}</b><br>
+                  <small style="font-family:monospace; color:var(--text-muted);">${item.cuit}</small>
+                </td>
+                <td style="text-align:center;"><span class="badge-sit ${sitClass}">${item.worst}</span></td>
+                <td style="font-weight:700;">${fmtArs(item.debt)}</td>
+                <td>${item.rejected} ${impTxt}</td>
+                <td style="text-align:right;"><span class="pill ${item.risk}">${item.risk_label}</span></td>
+              </tr>
+            `;
+          }).join("");
+
+          if (list.length) selectItem(0);
+          buildWhatsApp(list);
+        }
+
+        function selectItem(idx) {
+          const item = window.DATA_BCRA[idx];
+          document.querySelectorAll("tbody tr").forEach(r => r.classList.remove("active-row"));
+          const cur = document.getElementById(`r-${idx}`);
+          if (cur) cur.classList.add("active-row");
+
+          let lastChecksHtml = "";
+          if (item.last3 && item.last3.length) {
+            lastChecksHtml = `
+              <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+                <div class="label-xs" style="margin-bottom:6px;">Últimos 3 Cheques Rechazados</div>
+                ${item.last3.map(c => `
+                  <div style="font-size:12px; border-bottom:1px solid #232c3d; padding:4px 0; color:#cbd5e1;">
+                    • <b>${parseDateCustom(c.fechaRechazo)}</b> — ${fmtArs(c.monto)} (${(c.causal || "").slice(0, 18)}) 
+                    [${c.fechaPago ? '<span style="color:#34d399; font-weight:700;">Pagado</span>' : '<span style="color:#ef4444; font-weight:700;">Impago</span>'}]
+                  </div>
+                `).join("")}
+              </div>
+            `;
+          }
+
+          document.getElementById("drawer").innerHTML = `
+            <div class="label-xs">Ficha del Librador</div>
+            <h3 style="margin:4px 0 2px; font-size:17.5px;">${item.denominacion}</h3>
+            <div style="font-family:monospace; color:var(--text-muted); font-size:12.5px; margin-bottom:10px;">${item.cuit}</div>
+            <span class="pill ${item.risk}">${item.risk_label}</span>
+
+            <div class="drawer-metrics">
+              <div class="metric-cell"><div class="label-xs">Peor Situación</div><b>${item.worst}</b></div>
+              <div class="metric-cell"><div class="label-xs">Deuda Total</div><b>${fmtArs(item.debt)}</b></div>
+              <div class="metric-cell"><div class="label-xs">Total Rechazos</div><b>${item.rejected}</b></div>
+              <div class="metric-cell"><div class="label-xs">Impagos / Pend.</div><b style="${item.pending > 0 ? 'color:#ef4444' : ''}">${item.pending}</b></div>
+            </div>
+
+            <div style="margin-top:12px;">
+              ${item.alerts.map(a => `<div class="alert-block ${item.risk}">${a}</div>`).join("")}
+            </div>
+
+            ${lastChecksHtml}
+          `;
+        }
+
+        function buildWhatsApp(list) {
+          const container = document.getElementById("waContainer");
+          const msgBox = document.getElementById("waMessage");
+
+          const rech = list.filter(x => x.risk === "bad");
+          const rev = list.filter(x => x.risk === "warn");
+
+          let t = "";
+          if (rech.length) {
+            t += "Hola! Te paso el resultado de la tanda analizada:\n\n";
+            t += "❌ *RECHAZAR los siguientes libradores:*\n";
+            rech.forEach(x => {
+              let m = `Sit: ${x.worst}`;
+              if (x.pending > 0) m += ` | ${x.pending} cheques impagos`;
+              if (x.rejected > 5) m += ` | ${x.rejected} rechazos totales`;
+              t += `• *${x.denominacion}* (CUIT ${x.cuit}) - ${m}\n`;
+            });
+            if (rev.length) {
+              t += "\n⚠️ *A REVISAR antes de recibir:*\n";
+              rev.forEach(x => {
+                t += `• ${x.denominacion} (Sit: ${x.worst})\n`;
+              });
+            }
+          } else if (rev.length) {
+            t += "Hola! De la tanda analizada sugiero *revisar*:\n\n";
+            rev.forEach(x => {
+              t += `• *${x.denominacion}* (CUIT ${x.cuit}) - Sit: ${x.worst}\n`;
+            });
+          } else {
+            t = "Hola! Todos los libradores analizados están en condiciones *OK (Sin Alertas)*. ✅";
+          }
+
+          msgBox.value = t;
+          container.style.display = "block";
+        }
+
+        function copiarWhatsApp() {
+          const area = document.getElementById("waMessage");
+          navigator.clipboard.writeText(area.value).then(() => {
+            alert("¡Mensaje copiado al portapapeles!");
+          });
+        }
+
+        function cargarDemo() {
+          document.getElementById("txtCuits").value = DEMO.join("\\n");
+        }
+
+        function limpiar() {
+          document.getElementById("txtCuits").value = "";
+          document.getElementById("apiStatus").textContent = "Pegá los CUITs y presioná Consultar BCRA.";
+          document.getElementById("sumTotal").textContent = "0";
+          document.getElementById("sumOk").textContent = "0";
+          document.getElementById("sumWarn").textContent = "0";
+          document.getElementById("sumBad").textContent = "0";
+          document.getElementById("rowsBody").innerHTML = '<tr><td colspan="5" style="text-align:center; padding:28px; color:var(--text-muted);">No hay datos cargados aún.</td></tr>';
+          document.getElementById("drawer").innerHTML = `
+            <div class="label-xs">Ficha del Librador</div>
+            <h3 style="margin:4px 0 2px; font-size:17px;">Seleccioná un librador</h3>
+            <div style="font-size:12px; color:var(--text-muted);">Hacé clic en cualquier fila para inspeccionar detalle bancario y cheques.</div>
+          `;
+          document.getElementById("waContainer").style.display = "none";
+        }
+      </script>
+    </body>
+    </html>
+    """
+
+    components.html(bcra_app_html, height=880, scrolling=True)
