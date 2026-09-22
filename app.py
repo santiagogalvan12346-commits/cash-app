@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Suite Financiera Corporativa — L2 For Drink SA
+Suite Financiera — For Drink SA
 ====================================================================
 Módulos:
 1. Gestión de Tesorería (Flujo de Caja, Escaleras y Conciliación)
-2. Analizador de Libradores · BCRA (Scoring y Cheques Rechazados)
+2. Analizador de Libradores · BCRA (Scoring de Cheques Integrado Dark)
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ import core
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Suite Financiera — L2 For Drink SA",
+    page_title="Finanzas — For Drink SA",
     page_icon="💼",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -58,53 +58,50 @@ st.markdown(
     [data-testid="stMetricLabel"] {
         font-size: 0.85rem !important;
         font-weight: 600 !important;
-        color: #555555;
+        color: #94a3b8;
     }
-    
-    /* Estilos del Analizador BCRA fieles a la V2 */
-    .bcra-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+
+    /* Estilos del Analizador BCRA integrados a la paleta oscura */
+    .bcra-card-dark {
+        background: #18202a;
+        border: 1px solid #2d3748;
         border-radius: 12px;
-        padding: 14px 18px;
+        padding: 16px 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
-    .bcra-label {
+    .bcra-label-dark {
         font-size: 11px;
         text-transform: uppercase;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-        color: #64748b;
-    }
-    .bcra-val {
-        font-size: 26px;
         font-weight: 700;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+    }
+    .bcra-val-dark {
+        font-size: 28px;
+        font-weight: 800;
         margin-top: 4px;
         line-height: 1.1;
     }
-    .badge-sit {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        font-weight: 700;
-        font-size: 12px;
+    .bcra-table-box {
+        background: #18202a;
+        border: 1px solid #2d3748;
+        border-radius: 12px;
+        padding: 6px 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
-    .badge-sit-1 { background-color: #dcfce7; color: #166534; }
-    .badge-sit-2 { background-color: #fef9c3; color: #854d0e; }
-    .badge-sit-bad { background-color: #fee2e2; color: #991b1b; }
-    
-    .pill-status {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 9999px;
-        font-size: 11px;
-        font-weight: 700;
+    .bcra-drawer-box {
+        background: #18202a;
+        border: 1px solid #2d3748;
+        border-radius: 12px;
+        padding: 18px 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
-    .pill-alerta { background-color: #fee2e2; color: #991b1b; }
-    .pill-revisar { background-color: #fef9c3; color: #854d0e; }
-    .pill-ok { background-color: #dcfce7; color: #166534; }
+    .kpi-mini-box {
+        background: #1e2634;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 10px 12px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -198,11 +195,11 @@ def fmt_ars(value: float) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Barra lateral: Selector de Módulos (Suite Financiera)
+# Barra lateral: Finanzas (For Drink SA)
 # ---------------------------------------------------------------------------
 
-st.sidebar.title("💼 Suite Financiera")
-st.sidebar.caption("L2 For Drink SA · Centro Operativo")
+st.sidebar.title("💼 Finanzas")
+st.sidebar.caption("For Drink SA - Centro Operativo")
 
 if conn is not None:
     st.sidebar.markdown(
@@ -238,7 +235,7 @@ if not st.session_state.is_admin:
             else:
                 st.error("Clave incorrecta")
 else:
-    st.sidebar.markdown("<small style='color:#1F4E78; font-weight:600;'>🔑 Perfil: Administrador</small>", unsafe_allow_html=True)
+    st.sidebar.markdown("<small style='color:#38bdf8; font-weight:600;'>🔑 Perfil: Administrador</small>", unsafe_allow_html=True)
     if st.sidebar.button("Cerrar sesión Admin"):
         st.session_state.is_admin = False
         st.rerun()
@@ -317,7 +314,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
     df_filtered = apply_filters(df_all)
 
     st.title("Gestión de Tesorería — Planes de Pago")
-    st.caption(f"L2 For Drink SA · Sede activa: **{sede_global}** · Flujo de caja en tiempo real.")
+    st.caption(f"For Drink SA · Sede activa: **{sede_global}** · Flujo de caja en tiempo real.")
 
     if st.session_state.is_admin:
         tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_export = st.tabs([
@@ -353,7 +350,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 fig = px.bar(
                     dist, x="mes", y="importe_ars", text_auto=".2s",
                     labels={"mes": "Mes", "importe_ars": "Importe ARS"},
-                    color_discrete_sequence=["#1F4E78"],
+                    color_discrete_sequence=["#38bdf8"],
                 )
                 fig.update_layout(yaxis_title="Importe ARS", xaxis_title="", margin=dict(t=10, b=10), height=340)
                 st.plotly_chart(fig, use_container_width=True)
@@ -364,7 +361,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 st.subheader("Distribución por Sede")
                 por_sede = df_filtered.groupby("tesoreria")["importe_ars"].sum().reset_index()
                 fig_sede = px.pie(por_sede, names="tesoreria", values="importe_ars", hole=0.45,
-                                  color_discrete_sequence=["#1F4E78", "#8FAADC"])
+                                  color_discrete_sequence=["#0284c7", "#38bdf8"])
                 fig_sede.update_layout(margin=dict(t=10, b=10), height=280)
                 st.plotly_chart(fig_sede, use_container_width=True)
 
@@ -395,17 +392,11 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     sem_label = r_sem["semana_etiqueta"]
 
                     if monto_s > umbral_tension or monto_s > (promedio_futuro * 1.3):
-                        icono = "🔴"
-                        msj = f"**{sem_label}** — {fmt_ars(monto_s)} *(Tensión Alta)*"
-                        st.error(msj, icon=icono)
+                        st.error(f"**{sem_label}** — {fmt_ars(monto_s)} *(Tensión Alta)*", icon="🔴")
                     elif monto_s >= (promedio_futuro * 0.8):
-                        icono = "🟡"
-                        msj = f"**{sem_label}** — {fmt_ars(monto_s)} *(En Promedio)*"
-                        st.warning(msj, icon=icono)
+                        st.warning(f"**{sem_label}** — {fmt_ars(monto_s)} *(En Promedio)*", icon="🟡")
                     else:
-                        icono = "🟢"
-                        msj = f"**{sem_label}** — {fmt_ars(monto_s)} *(Holgada)*"
-                        st.success(msj, icon=icono)
+                        st.success(f"**{sem_label}** — {fmt_ars(monto_s)} *(Holgada)*", icon="🟢")
 
         st.divider()
         st.subheader("Compromiso y Avance por Proveedor")
@@ -413,9 +404,9 @@ if modulo_activo == "💵 Gestión de Tesorería":
         if not ctrl.empty:
             fig2 = go.Figure()
             fig2.add_trace(go.Bar(y=ctrl["proveedor"], x=ctrl["compromiso_total_ars"], orientation="h",
-                                   name="Comprometido", marker_color="#D9D9D9"))
+                                   name="Comprometido", marker_color="#475569"))
             fig2.add_trace(go.Bar(y=ctrl["proveedor"], x=ctrl["pagado_ars"], orientation="h",
-                                   name="Pagado", marker_color="#1F4E78"))
+                                   name="Pagado", marker_color="#38bdf8"))
             fig2.update_layout(barmode="overlay", xaxis_title="Importe ARS", height=max(320, 26 * len(ctrl)),
                                 margin=dict(t=10, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02))
             st.plotly_chart(fig2, use_container_width=True)
@@ -528,7 +519,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     title_style = ParagraphStyle('MatTitle', parent=styles['Heading1'], fontSize=13, textColor=colors.HexColor('#1F4E78'), spaceAfter=3)
                     sub_style = ParagraphStyle('MatSub', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'), spaceAfter=10)
 
-                    story.append(Paragraph(f"<b>L2 FOR DRINK SA — MATRIZ SEMANAL DE FLUJO DE EFECTIVO ({sede_global.upper()})</b>", title_style))
+                    story.append(Paragraph(f"<b>FOR DRINK SA — MATRIZ SEMANAL DE FLUJO DE EFECTIVO ({sede_global.upper()})</b>", title_style))
                     story.append(Paragraph(f"Período: Desde semana {semana_inicio_sel} | Fecha de emisión: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
 
                     headers = list(matrix_df.columns)
@@ -591,11 +582,11 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 def highlight_peaks(row):
                     styles = [""] * len(row)
                     if row["Semana"] == "TOTAL POR PROVEEDOR":
-                        return ["font-weight: bold; background-color: #EFEFEF"] * len(row)
+                        return ["font-weight: bold; background-color: #334155"] * len(row)
                     try:
                         if row["TOTAL SEMANAL"] > umbral_tension:
                             idx = list(row.index).index("TOTAL SEMANAL")
-                            styles[idx] = "background-color:#FFC7CE; font-weight:bold;"
+                            styles[idx] = "background-color:#7f1d1d; font-weight:bold; color:#fecaca;"
                     except Exception:
                         pass
                     return styles
@@ -722,7 +713,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 sub_style = ParagraphStyle('DocSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#444444'), spaceAfter=10)
                 kpi_style = ParagraphStyle('DocKpi', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#1F4E78'), spaceAfter=14)
 
-                titulo_txt = f"L2 FOR DRINK SA — PLAN DE PAGO: {prov_name.upper()}" + (f" - {op_name.upper()}" if op_name != "Todas las Operaciones (Consolidado)" else "")
+                titulo_txt = f"FOR DRINK SA — PLAN DE PAGO: {prov_name.upper()}" + (f" - {op_name.upper()}" if op_name != "Todas las Operaciones (Consolidado)" else "")
                 story.append(Paragraph(f"<b>{titulo_txt}</b>", title_style))
                 story.append(Paragraph(f"Fecha de Emisión: <b>{dt.datetime.now().strftime('%d/%m/%Y %H:%M')}</b> | Sede: <b>{sede_global}</b>", sub_style))
 
@@ -757,7 +748,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 firmas_data = [
                     ["___________________________________", "___________________________________"],
                     ["Firma y Aclaración Tesorería", "Conformidad Contratista / Proveedor"],
-                    ["L2 For Drink SA", f"{prov_name}"],
+                    ["For Drink SA", f"{prov_name}"],
                 ]
                 t_firmas = Table(firmas_data, colWidths=[260, 260])
                 t_firmas.setStyle(TableStyle([
@@ -906,7 +897,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     tesoreria_sel = st.selectbox("Sede", core.TESORERIAS_VALIDAS, index=core.TESORERIAS_VALIDAS.index(record["tesoreria"]) if record is not None else 0)
                     fecha_pago = st.date_input("Fecha", value=record["fecha"].date() if record is not None and pd.notna(record["fecha"]) else dt.date.today())
                     modo_p = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True)
-                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=proveedores_existentes.index(record["proveedor"]) if record is not None and record["proveedor"] in proveedores_existentes else 0) if modo_p == "Existente" and proveedores_existentes else st.text_input("Nombre nuevo", value=record["proveedor"] if record is not None else "").strip().upper()
+                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=proveedores_existentes.index(record["proveedor"]) if record is not None else 0) if modo_p == "Existente" and proveedores_existentes else st.text_input("Nombre nuevo", value=record["proveedor"] if record is not None else "").strip().upper()
                     proyecto = st.text_input("Proyecto", value=record["proyecto"] if record is not None else "L2")
                     concepto = st.text_input("Operación / Concepto", value=record["concepto"] if record is not None else "")
                     c_mon, c_tc = st.columns(2)
@@ -960,11 +951,9 @@ if modulo_activo == "💵 Gestión de Tesorería":
             st.download_button("⬇️ Descargar Excel Completo", xlsx_data, f"base_pagos_efectivo_{dt.date.today().isoformat()}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
 
 # ===========================================================================
-# MÓDULO 2: ANALIZADOR DE LIBRADORES · BCRA (ESPACIO DEDICADO)
+# MÓDULO 2: ANALIZADOR DE LIBRADORES · BCRA (NATIVO INTEGRADO DARK)
 # ===========================================================================
 elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
-    import streamlit.components.v1 as components
-
     col_t_bcra, col_btns_bcra = st.columns([3, 1.2])
     with col_t_bcra:
         st.title("Analizador de Libradores BCRA")
@@ -979,6 +968,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
         if b_clean.button("Limpiar", use_container_width=True):
             st.session_state["bcra_input_val"] = ""
             st.session_state["resultados_bcra"] = []
+            st.session_state["bcra_status_msg"] = None
             st.rerun()
 
     input_text_val = st.session_state.get("bcra_input_val", "")
@@ -1015,7 +1005,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             st.session_state["resultados_bcra"] = res_bcra
             st.session_state["bcra_status_msg"] = f"✅ Consulta finalizada ({len(res_bcra)} libradores evaluados)."
 
-    if "bcra_status_msg" in st.session_state:
+    if st.session_state.get("bcra_status_msg"):
         st.caption(st.session_state["bcra_status_msg"])
 
     data_bcra = st.session_state.get("resultados_bcra", [])
@@ -1024,16 +1014,16 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
     n_warn = len([x for x in data_bcra if x["risk"] == "warn"])
     n_bad = len([x for x in data_bcra if x["risk"] == "bad"])
 
-    # Tarjetas de Resumen con color explícito forzado
+    # Tarjetas de Resumen en la paleta oscura corporativa
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Libradores Evaluados</div><div class='bcra-val' style='color:#0f172a;'>{n_tot}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Libradores Evaluados</div><div class='bcra-val-dark' style='color:#f8fafc;'>{n_tot}</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Sin Alertas</div><div class='bcra-val' style='color:#166534;'>{n_ok}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Sin Alertas</div><div class='bcra-val-dark' style='color:#10b981;'>{n_ok}</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Revisar</div><div class='bcra-val' style='color:#854d0e;'>{n_warn}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Revisar</div><div class='bcra-val-dark' style='color:#f59e0b;'>{n_warn}</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown(f"<div class='bcra-card'><div class='bcra-label'>Alertas / Rechazar</div><div class='bcra-val' style='color:#991b1b;'>{n_bad}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Alertas / Rechazar</div><div class='bcra-val-dark' style='color:#ef4444;'>{n_bad}</div></div>", unsafe_allow_html=True)
 
     st.write("")
 
@@ -1044,60 +1034,64 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             st.markdown(
                 """
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <b style="font-size:15px;">Listado de Libradores</b>
-                    <small style="color:#64748b;">Prioridad: Alerta → Revisar → Sin Alertas</small>
+                    <b style="font-size:15px; color:#f8fafc;">Listado de Libradores</b>
+                    <small style="color:#94a3b8;">Prioridad: Alerta → Revisar → Sin Alertas</small>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-            # Generamos las filas HTML sin indentación que confunda al parser
-            rows_html_list = []
+            # Tabla nativa sin iframes, perfectamente adaptada al modo oscuro
+            rows_html = []
             for x in data_bcra:
                 sit_val = x["worst"]
-                badge_bg = "#dcfce7" if sit_val in (0, 1) else ("#fef9c3" if sit_val == 2 else "#fee2e2")
-                badge_tx = "#166534" if sit_val in (0, 1) else ("#854d0e" if sit_val == 2 else "#991b1b")
-                
-                pill_bg = "#fee2e2" if x["risk"] == "bad" else ("#fef9c3" if x["risk"] == "warn" else "#dcfce7")
-                pill_tx = "#991b1b" if x["risk"] == "bad" else ("#854d0e" if x["risk"] == "warn" else "#166534")
+                if sit_val in (0, 1):
+                    badge_style = "background:#064e3b; color:#34d399; border: 1px solid #059669;"
+                elif sit_val == 2:
+                    badge_style = "background:#78350f; color:#fbbf24; border: 1px solid #d97706;"
+                else:
+                    badge_style = "background:#7f1d1d; color:#f87171; border: 1px solid #dc2626;"
 
-                imp_text = f"<span style='color:#991b1b; font-weight:700;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#64748b;'>(0 impagos)</span>"
+                if x["risk"] == "bad":
+                    pill_style = "background:#7f1d1d; color:#fecaca; border:1px solid #dc2626;"
+                elif x["risk"] == "warn":
+                    pill_style = "background:#78350f; color:#fde68a; border:1px solid #d97706;"
+                else:
+                    pill_style = "background:#064e3b; color:#a7f3d0; border:1px solid #059669;"
 
-                row = (
-                    f"<tr style='border-bottom:1px solid #f1f5f9;'>"
-                    f"<td style='padding:12px 10px;'><b>{x['denominacion']}</b><br><small style='font-family:monospace; color:#64748b;'>{x['cuit']}</small></td>"
-                    f"<td style='text-align:center; padding:12px 6px;'><span style='display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:{badge_bg}; color:{badge_tx}; font-weight:700; font-size:12px;'>{sit_val}</span></td>"
-                    f"<td style='padding:12px 10px; font-weight:700; color:#0f172a;'>{fmt_ars(x['debt'])}</td>"
-                    f"<td style='padding:12px 10px; color:#0f172a;'>{x['rejected']} {imp_text}</td>"
-                    f"<td style='padding:12px 10px; text-align:right;'><span style='display:inline-block; padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:700; background:{pill_bg}; color:{pill_tx};'>{x['risk_label']}</span></td>"
+                imp_txt = f"<span style='color:#ef4444; font-weight:700;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#94a3b8;'>(0 impagos)</span>"
+
+                row_str = (
+                    f"<tr style='border-bottom: 1px solid #2d3748;'>"
+                    f"<td style='padding:12px 10px; color:#f8fafc;'><b>{x['denominacion']}</b><br><small style='font-family:monospace; color:#94a3b8;'>{x['cuit']}</small></td>"
+                    f"<td style='text-align:center; padding:12px 6px;'><span style='display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; font-weight:700; font-size:12px; {badge_style}'>{sit_val}</span></td>"
+                    f"<td style='padding:12px 10px; font-weight:700; color:#f8fafc;'>{fmt_ars(x['debt'])}</td>"
+                    f"<td style='padding:12px 10px; color:#f8fafc;'>{x['rejected']} {imp_txt}</td>"
+                    f"<td style='padding:12px 10px; text-align:right;'><span style='display:inline-block; padding:4px 10px; border-radius:9999px; font-size:11px; font-weight:700; {pill_style}'>{x['risk_label']}</span></td>"
                     f"</tr>"
                 )
-                rows_html_list.append(row)
+                rows_html.append(row_str)
 
-            table_content = "".join(rows_html_list)
-            full_table_html = (
-                f"<div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;'>"
+            tabla_dark_html = (
+                f"<div class='bcra-table-box'>"
                 f"<table style='width:100%; border-collapse:collapse; font-size:13px;'>"
-                f"<thead><tr style='border-bottom:1px solid #e2e8f0; color:#64748b; font-size:11px; text-transform:uppercase; background:#f8fafc;'>"
+                f"<thead><tr style='border-bottom:1px solid #334155; color:#94a3b8; font-size:11px; text-transform:uppercase;'>"
                 f"<th style='padding:10px; text-align:left;'>Librador / Denominación</th>"
                 f"<th style='padding:10px; text-align:center;'>Peor Sit.</th>"
                 f"<th style='padding:10px; text-align:left;'>Deuda Bancaria</th>"
                 f"<th style='padding:10px; text-align:left;'>Rechazos (Pend.)</th>"
                 f"<th style='padding:10px; text-align:right;'>Estado</th>"
                 f"</tr></thead>"
-                f"<tbody>{table_content}</tbody>"
+                f"<tbody>{''.join(rows_html)}</tbody>"
                 f"</table></div>"
             )
-
-            # Renderizado encapsulado garantizado
-            calc_height = max(240, 48 * len(data_bcra) + 60)
-            components.html(full_table_html, height=calc_height, scrolling=True)
+            st.markdown(tabla_dark_html, unsafe_allow_html=True)
 
         with col_grid_drawer:
             st.markdown(
                 """
                 <div style="margin-bottom:8px;">
-                    <span class="bcra-label">Ficha del Librador</span>
+                    <span class="bcra-label-dark">Ficha del Librador</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -1108,31 +1102,41 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             idx_sel = opciones_nombres.index(sel_lib)
             lib = data_bcra[idx_sel]
 
-            pill_bg_d = "#fee2e2" if lib["risk"] == "bad" else ("#fef9c3" if lib["risk"] == "warn" else "#dcfce7")
-            pill_tx_d = "#991b1b" if lib["risk"] == "bad" else ("#854d0e" if lib["risk"] == "warn" else "#166534")
+            if lib["risk"] == "bad":
+                badge_d_style = "background:#7f1d1d; color:#fecaca; border:1px solid #dc2626;"
+            elif lib["risk"] == "warn":
+                badge_d_style = "background:#78350f; color:#fde68a; border:1px solid #d97706;"
+            else:
+                badge_d_style = "background:#064e3b; color:#a7f3d0; border:1px solid #059669;"
 
-            drawer_html = (
-                f"<div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;'>"
-                f"<h3 style='margin:0 0 2px 0; font-size:17px; font-weight:700; color:#0f172a;'>{lib['denominacion']}</h3>"
-                f"<div style='font-family:monospace; color:#64748b; font-size:13px; margin-bottom:12px;'>{lib['cuit']}</div>"
-                f"<span style='display:inline-block; padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:700; background:{pill_bg_d}; color:{pill_tx_d};'>{lib['risk_label']}</span>"
+            # Tarjeta de Ficha nativa en Dark Mode
+            drawer_dark_html = (
+                f"<div class='bcra-drawer-box'>"
+                f"<h3 style='margin:0 0 2px 0; font-size:18px; font-weight:700; color:#f8fafc;'>{lib['denominacion']}</h3>"
+                f"<div style='font-family:monospace; color:#94a3b8; font-size:13px; margin-bottom:12px;'>{lib['cuit']}</div>"
+                f"<span style='display:inline-block; padding:3px 10px; border-radius:9999px; font-size:11px; font-weight:700; {badge_d_style}'>{lib['risk_label']}</span>"
                 f"<div style='display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px;'>"
-                f"<div style='background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #edf2f7;'><div style='font-size:10px; text-transform:uppercase; font-weight:600; color:#64748b;'>Peor Situación</div><b style='font-size:16px; color:#0f172a; margin-top:2px; display:block;'>{lib['worst']}</b></div>"
-                f"<div style='background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #edf2f7;'><div style='font-size:10px; text-transform:uppercase; font-weight:600; color:#64748b;'>Deuda Total</div><b style='font-size:16px; color:#0f172a; margin-top:2px; display:block;'>{fmt_ars(lib['debt'])}</b></div>"
-                f"<div style='background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #edf2f7;'><div style='font-size:10px; text-transform:uppercase; font-weight:600; color:#64748b;'>Total Rechazos</div><b style='font-size:16px; color:#0f172a; margin-top:2px; display:block;'>{lib['rejected']}</b></div>"
-                f"<div style='background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #edf2f7;'><div style='font-size:10px; text-transform:uppercase; font-weight:600; color:#64748b;'>Impagos / Pend.</div><b style='font-size:16px; margin-top:2px; display:block; color:{'#991b1b' if lib['pending'] > 0 else '#0f172a'};'>{lib['pending']}</b></div>"
+                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Peor Situación</div><b style='font-size:16px; color:#f8fafc; margin-top:2px; display:block;'>{lib['worst']}</b></div>"
+                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Deuda Total</div><b style='font-size:16px; color:#f8fafc; margin-top:2px; display:block;'>{fmt_ars(lib['debt'])}</b></div>"
+                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Total Rechazos</div><b style='font-size:16px; color:#f8fafc; margin-top:2px; display:block;'>{lib['rejected']}</b></div>"
+                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Impagos / Pend.</div><b style='font-size:16px; margin-top:2px; display:block; color:{'#ef4444' if lib['pending'] > 0 else '#f8fafc'};'>{lib['pending']}</b></div>"
                 f"</div></div>"
             )
-            components.html(drawer_html, height=210)
+            st.markdown(drawer_dark_html, unsafe_allow_html=True)
 
-            # Alertas y diagnósticos
+            # Diagnósticos y Alertas
+            st.write("")
             for al in lib["alerts"]:
-                bg_al = "#fee2e2" if lib["risk"] == "bad" else ("#fef9c3" if lib["risk"] == "warn" else "#dcfce7")
-                tx_al = "#991b1b" if lib["risk"] == "bad" else ("#854d0e" if lib["risk"] == "warn" else "#166534")
-                st.markdown(f"<div style='background:{bg_al}; color:{tx_al}; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:500; margin-bottom:6px;'>{al}</div>", unsafe_allow_html=True)
+                if lib["risk"] == "bad":
+                    al_style = "background:#450a0a; color:#fca5a5; border-left: 3px solid #ef4444;"
+                elif lib["risk"] == "warn":
+                    al_style = "background:#451a03; color:#fcd34d; border-left: 3px solid #f59e0b;"
+                else:
+                    al_style = "background:#064e3b; color:#6ee7b7; border-left: 3px solid #10b981;"
+                st.markdown(f"<div style='padding:8px 12px; border-radius:6px; font-size:12px; font-weight:500; margin-bottom:6px; {al_style}'>{al}</div>", unsafe_allow_html=True)
 
             if lib["last3"]:
-                st.markdown("<small style='font-weight:700; text-transform:uppercase; color:#64748b;'>Últimos 3 Cheques Rechazados</small>", unsafe_allow_html=True)
+                st.markdown("<small style='font-weight:700; text-transform:uppercase; color:#94a3b8;'>Últimos 3 Cheques Rechazados</small>", unsafe_allow_html=True)
                 for ch in lib["last3"]:
                     f_ch = str(ch.get("fechaRechazo", "—")).split("T")[0]
                     if "-" in f_ch:
@@ -1140,8 +1144,8 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                         if len(p_f) == 3 and len(p_f[0]) == 4:
                             f_ch = f"{p_f[2]}-{p_f[1]}-{p_f[0]}"
                     m_ch = fmt_ars(ch.get("monto", 0))
-                    estado_ch = "<span style='color:#166534; font-weight:700;'>Pagado</span>" if ch.get("fechaPago") else "<span style='color:#991b1b; font-weight:700;'>Impago</span>"
-                    st.markdown(f"<div style='font-size:12px; border-bottom:1px solid #f1f5f9; padding:4px 0;'>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{estado_ch}]</div>", unsafe_allow_html=True)
+                    estado_ch = "<span style='color:#34d399; font-weight:700;'>Pagado</span>" if ch.get("fechaPago") else "<span style='color:#f87171; font-weight:700;'>Impago</span>"
+                    st.markdown(f"<div style='font-size:12px; border-bottom:1px solid #334155; padding:5px 0; color:#cbd5e1;'>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{estado_ch}]</div>", unsafe_allow_html=True)
 
         # Módulo WhatsApp
         st.divider()
