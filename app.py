@@ -2,9 +2,11 @@
 """
 Sistema de Gestión de Efectivo — L2 For Drink SA
 ====================================================================
-Versión: Semáforo con umbrales dinámicos (Consolidado: 30M | Sedes: 15M),
-Aviso confirmatorio anti-duplicados al guardar escaleras, descargas PDF/Excel
-para legajos físicos y apertura inteligente en semana actual.
+Versión Completa:
+- Semáforo dinámico de tensión de caja (Consolidado: 30M | Sedes: 15M)
+- Módulo BCRA: Scoring crediticio, últimos 3 cheques rechazados y WhatsApp
+- Reportes PDF listos para legajos físicos (firmas) y exportación Excel
+- Control de acceso: Admin (completo) vs Terceros (solo lectura)
 """
 
 from __future__ import annotations
@@ -181,7 +183,7 @@ if sede_global is None:
     sede_global = core.SEDE_CONSOLIDADO
 st.session_state.sede_global = sede_global
 
-# Definición de umbral de tensión según sede activa
+# Umbral de tensión según sede
 umbral_tension = 30_000_000.0 if sede_global == core.SEDE_CONSOLIDADO else 15_000_000.0
 
 if not st.session_state.is_admin:
@@ -264,7 +266,7 @@ st.sidebar.divider()
 st.sidebar.caption(f"Sede: **{sede_global}** · Pagos: **{len(df_filtered)}** / {len(df_all_raw)}")
 
 # ---------------------------------------------------------------------------
-# Pestañas Principales
+# Pestañas Principales (Dinámicas según perfil)
 # ---------------------------------------------------------------------------
 
 st.title("Gestión de Tesorería — Planes de Pago")
@@ -278,7 +280,7 @@ if st.session_state.is_admin:
         "⚡ Conciliación Rápida",
         "➕ Cargar Nueva Escalera",
         "📝 Registro Manual (ABM)",
-        "🔍 Analisi BCRA",
+        "🔍 Scoring BCRA",
         "⬇️ Exportar",
     ])
 else:
@@ -289,7 +291,7 @@ else:
     ])
 
 # ---------------------------------------------------------------------------
-# TAB 1 — Panel Ejecutivo (Semáforo Dinámico: Consolidado 30M / Sedes 15M)
+# TAB 1 — Panel Ejecutivo
 # ---------------------------------------------------------------------------
 with tab_kpi:
     kpis = core.compute_kpis(df_filtered)
@@ -349,7 +351,6 @@ with tab_kpi:
                 monto_s = r_sem["importe_ars"]
                 sem_label = r_sem["semana_etiqueta"]
 
-                # Semáforo dinámico: Rojo según umbral de la sede, o si supera 30% del promedio
                 if monto_s > umbral_tension or monto_s > (promedio_futuro * 1.3):
                     icono = "🔴"
                     msj = f"**{sem_label}** — {fmt_ars(monto_s)} *(Tensión Alta)*"
@@ -377,7 +378,7 @@ with tab_kpi:
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------------------------
-# TAB 2 — Matriz Semanal (Apertura en Semana Actual + PDF/Excel)
+# TAB 2 — Matriz Semanal
 # ---------------------------------------------------------------------------
 with tab_matriz:
     st.subheader("Matriz Semanal de Flujo de Efectivo (Consolidada)")
@@ -590,7 +591,7 @@ with tab_matriz:
             st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
 # ---------------------------------------------------------------------------
-# TAB 3 — Control Detallado de Escaleras (PDF Formal para Legajos)
+# TAB 3 — Control Detallado de Escaleras
 # ---------------------------------------------------------------------------
 with tab_escaleras:
     st.subheader("🪜 Control Individual de Escaleras y Presupuestos")
@@ -848,7 +849,7 @@ with tab_escaleras:
         )
 
 # ---------------------------------------------------------------------------
-# TAB 4 a 7 — Módulos exclusivos para el Administrador
+# TAB 4 a 8 — Módulos exclusivos para el Administrador
 # ---------------------------------------------------------------------------
 if st.session_state.is_admin:
     with tab_conciliar:
@@ -903,7 +904,6 @@ if st.session_state.is_admin:
         st.subheader("➕ Cargar Nueva Escalera de Pago")
         st.caption("Completá los datos del acuerdo y cargá los tramos en la grilla.")
 
-        # Mensaje confirmatorio si se acaba de guardar una escalera
         if "escalera_guardada_msj" in st.session_state:
             st.success(st.session_state.escalera_guardada_msj, icon="✅")
             st.toast(st.session_state.escalera_guardada_msj, icon="🚀")
@@ -949,7 +949,6 @@ if st.session_state.is_admin:
         with col_cant:
             cant_cuotas = st.number_input("Cantidad de tramos / cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
 
-        # Inicializar o resetear grilla
         if "grid_ladder_data" not in st.session_state or len(st.session_state.grid_ladder_data) != cant_cuotas or st.session_state.get("reset_grid_flag", False):
             base_f = dt.date.today()
             st.session_state.grid_ladder_data = pd.DataFrame([
@@ -1137,6 +1136,129 @@ if st.session_state.is_admin:
                     set_df(df_curr, sync_cloud=True)
                     st.warning(f"Pago {s_id} eliminado de la base.")
                     st.rerun()
+
+    with tab_bcra:
+        st.subheader("🔍 Analizador de Libradores BCRA")
+        st.caption("Evaluación crediticia de CUITs en Central de Deudores y Cheques Rechazados en tiempo real.")
+
+        c_in, c_btn = st.columns([3, 1])
+        with c_in:
+            cuits_raw = st.text_area(
+                "Pegá los CUITs (uno por línea o separados por coma/espacio):",
+                placeholder="30-71750253-8\n20-42797707-3\n30-55555555-5",
+                height=90,
+                key="input_cuits_bcra",
+            )
+        with c_btn:
+            st.write("")
+            st.write("")
+            btn_consultar = st.button("🔎 Consultar BCRA", type="primary", use_container_width=True)
+
+        if btn_consultar and cuits_raw.strip():
+            lista_cuits = core.parse_cuits_input(cuits_raw)
+            if not lista_cuits:
+                st.warning("No se detectaron CUITs válidos de 11 dígitos.")
+            else:
+                progress_bar = st.progress(0, text="Iniciando consultas al BCRA...")
+                resultados_bcra = []
+                for idx, c in enumerate(lista_cuits):
+                    progress_bar.progress((idx + 1) / len(lista_cuits), text=f"Consultando CUIT {c} ({idx + 1}/{len(lista_cuits)})...")
+                    res = core.fetch_bcra_data(c)
+                    resultados_bcra.append(res)
+                progress_bar.empty()
+
+                peso = {"bad": 0, "warn": 1, "ok": 2}
+                resultados_bcra.sort(key=lambda x: peso.get(x["risk"], 3))
+                st.session_state["resultados_bcra"] = resultados_bcra
+
+        if "resultados_bcra" in st.session_state and st.session_state["resultados_bcra"]:
+            data_bcra = st.session_state["resultados_bcra"]
+
+            n_tot = len(data_bcra)
+            n_ok = len([x for x in data_bcra if x["risk"] == "ok"])
+            n_warn = len([x for x in data_bcra if x["risk"] == "warn"])
+            n_bad = len([x for x in data_bcra if x["risk"] == "bad"])
+
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Libradores Evaluados", n_tot)
+            k2.metric("🟢 Sin Alertas", n_ok)
+            k3.metric("🟡 A Revisar", n_warn)
+            k4.metric("🔴 Alertas / Rechazar", n_bad)
+
+            st.divider()
+
+            col_tabla_bcra, col_ficha_bcra = st.columns([1.5, 1])
+
+            with col_tabla_bcra:
+                st.markdown("##### Listado de Libradores Evaluados")
+                rows_tabla = []
+                for x in data_bcra:
+                    rows_tabla.append({
+                        "CUIT": x["cuit"],
+                        "Denominación": x["denominacion"],
+                        "Peor Sit.": x["worst"],
+                        "Deuda Bancaria": fmt_ars(x["debt"]),
+                        "Rechazos (Impagos)": f"{x['rejected']} ({x['pending']} imp.)",
+                        "Estado": x["risk_label"],
+                    })
+                df_view_bcra = pd.DataFrame(rows_tabla)
+                st.dataframe(df_view_bcra, use_container_width=True, hide_index=True)
+
+            with col_ficha_bcra:
+                st.markdown("##### Ficha de Detalle")
+                opciones_nombres = [f"{x['denominacion']} ({x['cuit']})" for x in data_bcra]
+                sel_lib = st.selectbox("Seleccionar Librador para inspeccionar:", opciones_nombres, key="sel_lib_inspect")
+                
+                idx_sel = opciones_nombres.index(sel_lib)
+                lib = data_bcra[idx_sel]
+
+                color_bg = "#fee2e2" if lib["risk"] == "bad" else ("#fef9c3" if lib["risk"] == "warn" else "#dcfce7")
+                color_tx = "#991b1b" if lib["risk"] == "bad" else ("#854d0e" if lib["risk"] == "warn" else "#166534")
+                st.markdown(
+                    f"<div style='background:{color_bg}; color:{color_tx}; padding:8px 12px; border-radius:8px; font-weight:bold; margin-bottom:10px;'>"
+                    f"{lib['risk_label']} — Sit. {lib['worst']} · {lib['rejected']} rechazos ({lib['pending']} impagos)"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+                for al in lib["alerts"]:
+                    st.caption(f"• {al}")
+
+                if lib["last3"]:
+                    st.markdown("**Últimos 3 Cheques Rechazados:**")
+                    for ch in lib["last3"]:
+                        f_ch = ch.get("fechaRechazo", "—")
+                        m_ch = fmt_ars(ch.get("monto", 0))
+                        p_ch = "✅ Pagado" if ch.get("fechaPago") else "❌ Impago"
+                        st.markdown(f"<small>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{p_ch}]</small>", unsafe_allow_html=True)
+
+            st.divider()
+            st.markdown("##### 📱 Mensaje Automático para WhatsApp")
+            rechazados = [x for x in data_bcra if x["risk"] == "bad"]
+            revisar = [x for x in data_bcra if x["risk"] == "warn"]
+
+            if rechazados:
+                wa_txt = "Hola! Te paso el resultado de la tanda analizada:\n\n"
+                wa_txt += "❌ *RECHAZAR los siguientes libradores:*\n"
+                for r in rechazados:
+                    motivo = f"Sit: {r['worst']}"
+                    if r['pending'] > 0:
+                        motivo += f" | {r['pending']} cheques impagos"
+                    if r['rejected'] > 5:
+                        motivo += f" | {r['rejected']} rechazos totales"
+                    wa_txt += f"• *{r['denominacion']}* (CUIT {r['cuit']}) - {motivo}\n"
+                if revisar:
+                    wa_txt += "\n⚠️ *A REVISAR antes de recibir:*\n"
+                    for rv in revisar:
+                        wa_txt += f"• {rv['denominacion']} (Sit: {rv['worst']})\n"
+            elif revisar:
+                wa_txt = "Hola! De la tanda analizada no hay alertas críticas, pero sugiero *revisar*:\n\n"
+                for rv in revisar:
+                    wa_txt += f"• *{rv['denominacion']}* (CUIT {rv['cuit']}) - Sit: {rv['worst']}\n"
+            else:
+                wa_txt = "Hola! Todos los libradores analizados están en condiciones *OK (Sin Alertas)*. ✅"
+
+            st.text_area("Texto generado para copiar:", value=wa_txt, height=120, key="wa_text_area")
 
     with tab_export:
         st.subheader("⬇️ Exportar Base Actualizada")
