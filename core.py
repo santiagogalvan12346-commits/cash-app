@@ -403,3 +403,166 @@ def export_to_excel(df: pd.DataFrame) -> bytes:
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()
+import re
+import requests
+
+def clean_cuit(val: str) -> str:
+    """Elimina guiones y caracteres no numéricos dejando 11 dígitos."""
+    return re.sub(r"\D", "", str(val or ""))[:11]
+
+def parse_cuits_input(text: str) -> list[str]:
+    """Extrae CUITs únicos de un bloque de texto libre."""
+    raw = re.split(r"[\n,; \t]+", str(text or ""))
+    cleaned = [clean_cuit(x) for x in raw if clean_cuit(x)]
+    return sorted(list({c for c in cleaned if len(c) == 11}))
+
+def fetch_bcra_data(cuit: str) -> dict:
+    """Consulta la API del BCRA para Central de Deudores y Cheques Rechazados."""
+    base_headers = {"Accept": "application/json"}
+    
+    # 1. Central de Deudores
+    deuda_data = None
+    deuda_status = "ok"
+    try:
+        r_deuda = requests.get(
+            f"https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/{cuit}",
+            headers=base_headers,
+            timeout=8,
+        )
+        if r_deuda.status_code == 200:
+            deuda_data = r_deuda.json().get("results", {})
+        elif r_deuda.status_code == 404:
+            deuda_status = "none"
+        else:
+            deuda_status = "error"
+    except Exception:
+        deuda_status = "error"
+
+    # 2. Cheques Rechazados
+    checks = []
+    try:
+        r_checks = requests.get(
+            f"https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/ChequesRechazados/{cuit}",
+            headers=base_headers,
+            timeout=8,
+        )
+        if r_checks.status_code == 200:
+            cr = r_checks.json().get("results", {})
+            causales = cr.get("causales", [])
+            for c in causales:
+                causal_nombre = c.get("causal", "Sin causal")
+                for e in c.get("entidades", []):
+                    entidad_nombre = e.get("entidad", "Entidad no informada")
+                    for d in e.get("detalle", []):
+                        checks.append({
+                            "fechaRechazo": d.get("fechaRechazo", ""),
+                            "fechaPago": d.get("fechaPago", ""),
+                            "monto": float(d.get("monto", 0.0) or 0.0),
+                            "causal": causal_nombre,
+                            "entidad": entidad_nombre,
+                        })
+    except Exception:
+        checks = []
+
+    # Procesar perfil crediticio
+    if deuda_status == "ok" and deuda_data:
+        periods = deuda_data.get("periodos", [])
+        latest = periods[0] if periods else {}
+        ents = latest.get("entidades", [])
+
+        worst = max([int(e.get("situacion", 0) or 0) for e in ents], default=0)
+        debt = sum([(float(e.get("monto", 0) or 0) * 1000.0) for e in ents])
+        rejected = len(checks)
+        pending = len([c for c in checks if not c.get("fechaPago")])
+        pending_amount = sum([c["monto"] for c in checks if not c.get("fechaPago")])
+
+        # Criterio de semáforo
+        if worst >= 3 or pending > 0 or rejected > 5:
+            risk = "bad"
+            rt = "ALERTA"
+        elif worst == 2 or (1 <= rejected <= 5):
+            risk = "warn"
+            rt = "REVISAR"
+        else:
+            risk = "ok"
+            rt = "SIN ALERTAS"
+
+        alerts = []
+        if worst >= 3:
+            alerts.append(f"Peor situación informada: {worst} (Deterioro / Riesgo alto).")
+        elif worst == 2:
+            alerts.append("Registra entidad(es) en Situación 2 (Seguimiento especial).")
+
+        if pending > 0:
+            alerts.append(f"Posee {pending} cheque(s) rechazado(s) PENDIENTE(S) de pago.")
+        if rejected > 5:
+            alerts.append(f"Historial crítico de cheques: registra {rejected} rechazos en total.")
+        elif rejected > 0 and pending == 0:
+            alerts.append(f"Registra {rejected} rechazo(s) histórico(s), pero figuran cancelados/pagados.")
+
+        if not alerts:
+            alerts.append("Sin señales negativas: Situación normal y sin cheques rechazados.")
+
+        # Ordenar últimos 3 cheques
+        sorted_checks = sorted(checks, key=lambda x: str(x.get("fechaRechazo", "")), reverse=True)
+        last3 = sorted_checks[:3]
+
+        banks = [
+            [e.get("entidad", ""), int(e.get("situacion", 0) or 0), (float(e.get("monto", 0) or 0) * 1000.0)]
+            for e in ents
+        ]
+
+        return {
+            "cuit": cuit,
+            "denominacion": deuda_data.get("denominacion") or f"Librador {cuit}",
+            "risk": risk,
+            "risk_label": rt,
+            "worst": worst,
+            "debt": debt,
+            "rejected": rejected,
+            "pending": pending,
+            "pending_amount": pending_amount,
+            "alerts": alerts,
+            "banks": banks,
+            "last3": last3,
+        }
+
+    elif deuda_status == "none":
+        rej_count = len(checks)
+        pen_count = len([c for c in checks if not c.get("fechaPago")])
+        r = "ok"
+        rt = "SIN DEUDA BCRA"
+        if pen_count > 0 or rej_count > 5:
+            r, rt = "bad", "ALERTA"
+        elif rej_count > 0:
+            r, rt = "warn", "REVISAR"
+
+        return {
+            "cuit": cuit,
+            "denominacion": f"CUIT {cuit}",
+            "risk": r,
+            "risk_label": rt,
+            "worst": 0,
+            "debt": 0.0,
+            "rejected": rej_count,
+            "pending": pen_count,
+            "pending_amount": 0.0,
+            "alerts": ["Sin deuda bancaria registrada en Central de Deudores."],
+            "banks": [],
+            "last3": checks[:3],
+        }
+    else:
+        return {
+            "cuit": cuit,
+            "denominacion": f"CUIT {cuit}",
+            "risk": "warn",
+            "risk_label": "ERROR CONSULTA",
+            "worst": "-",
+            "debt": 0.0,
+            "rejected": 0,
+            "pending": 0,
+            "pending_amount": 0.0,
+            "alerts": ["Error de comunicación con los servidores del BCRA."],
+            "banks": [],
+            "last3": [],
+        }
