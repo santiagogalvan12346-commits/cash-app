@@ -2,14 +2,18 @@
 """
 Suite Financiera — For Drink SA
 ====================================================================
-Módulos:
-1. Gestión de Tesorería (Flujo de Caja, Escaleras y Conciliación)
-2. Analizador de Libradores · BCRA (Scoring de Cheques Integrado Dark)
+Versión Consolidada:
+- Planes y escaleras 100% en Pesos (ARS).
+- Carga de escaleras manual o pegable directamente desde Excel.
+- Legajo PDF con fila de cierre con totales generales.
+- Detalle de escaleras con visualizador de observaciones largas.
+- Analizador BCRA integrado nativo en modo oscuro.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import re
 import time
 from io import BytesIO
 from pathlib import Path
@@ -61,7 +65,7 @@ st.markdown(
         color: #94a3b8;
     }
 
-    /* Estilos del Analizador BCRA integrados a la paleta oscura */
+    /* Estilos Dark Corporativos para Analizador BCRA */
     .bcra-card-dark {
         background: #18202a;
         border: 1px solid #2d3748;
@@ -198,8 +202,8 @@ def fmt_ars(value: float) -> str:
 # Barra lateral: Finanzas (For Drink SA)
 # ---------------------------------------------------------------------------
 
-st.sidebar.title("💼 Finanzas")
-st.sidebar.caption("For Drink SA - Centro Operativo")
+st.sidebar.title("💼 Finanzas")[cite: 8]
+st.sidebar.caption("For Drink SA - Centro Operativo")[cite: 8]
 
 if conn is not None:
     st.sidebar.markdown(
@@ -212,7 +216,6 @@ if conn is not None:
         unsafe_allow_html=True,
     )
 
-# Selector preponderante de módulos
 if st.session_state.is_admin:
     modulo_activo = st.sidebar.radio(
         "Herramienta Activa",
@@ -224,7 +227,6 @@ else:
 
 st.sidebar.divider()
 
-# Login Admin
 if not st.session_state.is_admin:
     with st.sidebar.expander("🔒 Modo Operador / Admin", expanded=False):
         admin_pass = st.text_input("Clave de edición", type="password", key="pass_admin_input")
@@ -638,25 +640,32 @@ if modulo_activo == "💵 Gestión de Tesorería":
 
             st.divider()
 
+            # Observaciones consolidadas
+            todas_obs = [str(o).strip() for o in df_p["obs"].dropna().unique() if str(o).strip()]
+            with st.expander("🔍 Ver detalle de observaciones del acuerdo"):[cite: 14]
+                if todas_obs:
+                    for idx_o, obs_t in enumerate(todas_obs, 1):
+                        st.markdown(f"**Nota {idx_o}:** {obs_t}")[cite: 14]
+                else:
+                    st.caption("No hay notas u observaciones adicionales registradas para este plan.")[cite: 14]
+
             def merge_concepto_obs(r):
                 c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) else ""
                 o = str(r["obs"]).strip() if pd.notna(r["obs"]) else ""
                 if c and o:
                     return f"{c} ({o})" if c != o else c
-                return c or o or "Presupuesto Único"
+                return c or o or "Presupuesto Base"
 
             df_p["presupuesto_obs"] = df_p.apply(merge_concepto_obs, axis=1)
 
+            # TABLA LIMPIA: Sin TC ni Moneda
             def format_ladder_table(sub_df: pd.DataFrame) -> pd.DataFrame:
                 t = sub_df.sort_values("fecha").copy()
                 return pd.DataFrame({
                     "Fecha Vto.": t["fecha"],
-                    "Presupuesto / Observaciones": t["presupuesto_obs"],
-                    "Importe Pactado": t["importe"],
-                    "TC": t["tc"],
                     "Importe ARS": t["importe_ars"],
                     "Estado": t["estado"],
-                    "Moneda": t["moneda"],
+                    "Detalle / Observaciones": t["presupuesto_obs"],
                 })
 
             def export_provider_to_excel(df_table: pd.DataFrame, prov_name: str, op_name: str) -> bytes:
@@ -677,6 +686,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     cell.fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
                     cell.alignment = Alignment(horizontal="center", vertical="center")
 
+                total_suma = 0.0
                 for r_idx, (_, row) in enumerate(df_table.iterrows()):
                     row_num = h_row + 1 + r_idx
                     for c_idx, h in enumerate(headers, 1):
@@ -685,19 +695,28 @@ if modulo_activo == "💵 Gestión de Tesorería":
                         if h == "Fecha Vto." and pd.notna(val):
                             cell.value = val.strftime("%d/%m/%Y") if hasattr(val, "strftime") else str(val)
                             cell.alignment = Alignment(horizontal="center")
-                        elif h in ("Importe Pactado", "TC"):
-                            cell.value = float(val) if pd.notna(val) else 0.0
-                            cell.number_format = "#,##0.00"
                         elif h == "Importe ARS":
-                            cell.value = float(val) if pd.notna(val) else 0.0
+                            v_float = float(val) if pd.notna(val) else 0.0
+                            total_suma += v_float
+                            cell.value = v_float
                             cell.number_format = "$ #,##0"
                         else:
                             cell.value = str(val) if pd.notna(val) else ""
 
+                # Fila de totales en Excel
+                tot_row = h_row + 1 + len(df_table)
+                ws.cell(row=tot_row, column=1, value="TOTAL GENERAL").font = Font(bold=True)
+                ws.cell(row=tot_row, column=1).alignment = Alignment(horizontal="center")
+                cell_tot = ws.cell(row=tot_row, column=2, value=total_suma)
+                cell_tot.font = Font(bold=True)
+                cell_tot.number_format = "$ #,##0"
+                for c_idx in range(1, len(headers) + 1):
+                    ws.cell(row=tot_row, column=c_idx).fill = PatternFill(start_color="EFEFEF", end_color="EFEFEF", fill_type="solid")
+
                 for col in ws.columns:
                     max_len = max(len(str(cell.value or "")) for cell in col)
                     col_letter = get_column_letter(col[0].column)
-                    ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+                    ws.column_dimensions[col_letter].width = max(max_len + 3, 14)
 
                 buf = BytesIO()
                 wb.save(buf)
@@ -709,8 +728,8 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 styles = getSampleStyleSheet()
                 story = []
 
-                title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1F4E78'), spaceAfter=4)
-                sub_style = ParagraphStyle('DocSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#444444'), spaceAfter=10)
+                title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=13, textColor=colors.HexColor('#1F4E78'), spaceAfter=4)
+                sub_style = ParagraphStyle('DocSub', parent=styles['Normal'], fontSize=8.5, textColor=colors.HexColor('#444444'), spaceAfter=10)
                 kpi_style = ParagraphStyle('DocKpi', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#1F4E78'), spaceAfter=14)
 
                 titulo_txt = f"FOR DRINK SA — PLAN DE PAGO: {prov_name.upper()}" + (f" - {op_name.upper()}" if op_name != "Todas las Operaciones (Consolidado)" else "")
@@ -721,13 +740,18 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 story.append(Paragraph(resumen_txt, kpi_style))
 
                 pdf_data = [["Fecha Vto.", "Detalle / Concepto", "Importe ARS", "Estado"]]
+                total_cuotas_ars = 0.0
                 for _, r in df_table.iterrows():
                     f_str = r["Fecha Vto."].strftime("%d/%m/%Y") if hasattr(r["Fecha Vto."], "strftime") else str(r["Fecha Vto."])
-                    c_str = str(r["Presupuesto / Observaciones"])[:45]
-                    m_str = fmt_ars(r["Importe ARS"])
-                    e_str = str(r["Estado"])
-                    pdf_data.append([f_str, c_str, m_str, e_str])
+                    c_str = str(r["Detalle / Observaciones"])[:45]
+                    m_val = float(r["Importe ARS"]) if pd.notna(r["Importe ARS"]) else 0.0
+                    total_cuotas_ars += m_val
+                    pdf_data.append([f_str, c_str, fmt_ars(m_val), str(r["Estado"])])
 
+                # FILA DE TOTALES GENERALES AL PIE
+                pdf_data.append(["TOTAL ACORDADO", "", fmt_ars(total_cuotas_ars), ""])[cite: 13]
+
+                num_rows = len(pdf_data)
                 t = Table(pdf_data, colWidths=[80, 240, 115, 85])
                 t.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
@@ -735,15 +759,18 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                     ('FONTSIZE', (0, 0), (-1, 0), 9),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                    ('ALIGN', (1, 1), (1, -2), 'LEFT'),
                     ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
                     ('FONTSIZE', (0, 1), (-1, -1), 8.5),
-                    ('TOPPADDING', (0, 0), (-1, -1), 5),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4.5),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4.5),
+                    ('BACKGROUND', (0, num_rows - 1), (-1, num_rows - 1), colors.HexColor('#E2E8F0')),
+                    ('FONTNAME', (0, num_rows - 1), (-1, num_rows - 1), 'Helvetica-Bold'),
+                    ('TEXTCOLOR', (0, num_rows - 1), (-1, num_rows - 1), colors.HexColor('#0F172A')),
                 ]))
                 story.append(t)
-                story.append(Spacer(1, 40))
+                story.append(Spacer(1, 35))
 
                 firmas_data = [
                     ["___________________________________", "___________________________________"],
@@ -772,7 +799,14 @@ if modulo_activo == "💵 Gestión de Tesorería":
             with c_down_pdf:
                 st.download_button("📄 Descargar Reporte en PDF", pdf_bytes, f"Legajo_Escalera_{p_sel.replace(' ', '_')}_{dt.date.today().strftime('%Y%m%d')}.pdf", "application/pdf", key=f"dl_pdf_{p_sel}_{op_sel}", use_container_width=True)
 
-            st.dataframe(table_view.style.format({"Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "", "Importe Pactado": "{:,.2f}", "TC": "{:,.2f}", "Importe ARS": fmt_ars}), use_container_width=True, hide_index=True)
+            st.dataframe(
+                table_view.style.format({
+                    "Fecha Vto.": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "",
+                    "Importe ARS": fmt_ars,
+                }),
+                use_container_width=True,
+                hide_index=True,
+            )
 
     if st.session_state.is_admin:
         with tab_conciliar:
@@ -818,14 +852,15 @@ if modulo_activo == "💵 Gestión de Tesorería":
 
         with tab_asistente:
             st.subheader("➕ Cargar Nueva Escalera de Pago")
-            st.caption("Completá los datos del acuerdo y cargá los tramos en la grilla.")
+            st.caption("Completá los datos del acuerdo e ingresá los tramos manualmente o pegándolos desde Excel.")
 
             if "escalera_guardada_msj" in st.session_state:
                 st.success(st.session_state.escalera_guardada_msj, icon="✅")
                 st.toast(st.session_state.escalera_guardada_msj, icon="🚀")
                 del st.session_state["escalera_guardada_msj"]
 
-            c_cab1, c_cab2, c_cab3 = st.columns(3)
+            # Cabecera del acuerdo en Pesos
+            c_cab1, c_cab2 = st.columns(2)
             with c_cab1:
                 esc_tesoreria = st.selectbox("Tesorería / Sede", core.TESORERIAS_VALIDAS, index=0 if sede_global == "Tucumán" else 1, key="esc_sede")
                 tipo_prov = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True, key="esc_tipo_prov")
@@ -836,49 +871,116 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 esc_proyecto = st.text_input("Proyecto / Obra", value="L2 TUC" if esc_tesoreria == "Tucumán" else "L2 BA", key="esc_proy")
                 esc_concepto = st.text_input("Presupuesto / Identificador de Operación", placeholder="Ej: Carpintería Aluminio - Presupuesto N° 450", key="esc_conc")
 
-            with c_cab3:
-                esc_moneda = st.selectbox("Moneda del Acuerdo", core.MONEDAS_VALIDAS, key="esc_mon")
-                esc_tc = st.number_input("Tipo de Cambio acordado (USD)", min_value=1.0, value=1400.0, step=10.0, key="esc_tc_usd") if esc_moneda == "USD" else 1.0
-                if esc_moneda == "ARS":
-                    st.text_input("Tipo de Cambio", value="1.00 (ARS)", disabled=True)
-
             st.markdown("---")
-            cant_cuotas = st.number_input("Cantidad de tramos / cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
+            st.markdown("##### Cronograma de Pagos")
 
-            if "grid_ladder_data" not in st.session_state or len(st.session_state.grid_ladder_data) != cant_cuotas or st.session_state.get("reset_grid_flag", False):
+            modo_carga_esc = st.radio(
+                "Modalidad de ingreso de cuotas:",
+                ["📋 Pegar desde Excel (Rápido)", "✍️ Generar grilla manual"],
+                horizontal=True,
+                key="modo_carga_esc",
+            )
+
+            def parse_excel_ladder(text: str) -> list[dict]:
+                lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+                parsed = []
+                for line in lines:
+                    parts = re.split(r"[\t;|]+", line)
+                    if len(parts) < 2:
+                        parts = re.split(r"\s{2,}", line)
+                    if len(parts) >= 2:
+                        f_raw = parts[0].strip()
+                        m_raw = parts[1].strip()
+                        m_clean = m_raw.replace("$", "").replace(" ", "").replace(".", "").replace(",", ".")
+                        try:
+                            m_val = float(m_clean)
+                            f_val = pd.to_datetime(f_raw, dayfirst=True)
+                            parsed.append({"Fecha Vto.": f_val.date(), "Importe ARS": m_val})
+                        except Exception:
+                            continue
+                return parsed
+
+            if modo_carga_esc == "📋 Pegar desde Excel (Rápido)":
+                st.caption("Copiá en Excel las 2 columnas (`Fecha` e `Importe`) y pegalas en este cuadro:")
+                txt_excel_pago = st.text_area(
+                    "Pegar celdas copiadas de Excel",
+                    placeholder="25/09/2026\t700000\n02/10/2026\t700000\n09/10/2026\t700000",
+                    height=110,
+                    label_visibility="collapsed",
+                    key="txt_excel_pago_input",
+                )
+                if st.button("📥 Procesar Celdas Pegadas", key="btn_proc_excel"):
+                    if txt_excel_pago.strip():
+                        res_p = parse_excel_ladder(txt_excel_pago)
+                        if res_p:
+                            st.session_state.grid_ladder_data = pd.DataFrame([
+                                {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": r["Fecha Vto."], "Importe ARS": r["Importe ARS"]}
+                                for i, r in enumerate(res_p)
+                            ])
+                            st.success(f"¡Se cargaron {len(res_p)} tramos desde el portapapeles!")
+                        else:
+                            st.error("No se pudieron interpretar las filas. Asegurate de copiar dos columnas: Fecha e Importe.")
+            else:
+                col_nc, _ = st.columns([1, 3])
+                with col_nc:
+                    cant_cuotas = st.number_input("Cantidad de tramos / cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
+
+                if ("grid_ladder_data" not in st.session_state 
+                    or len(st.session_state.grid_ladder_data) != cant_cuotas 
+                    or st.session_state.get("reset_grid_flag", False)):
+                    base_f = dt.date.today()
+                    st.session_state.grid_ladder_data = pd.DataFrame([
+                        {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": base_f + dt.timedelta(days=7 * i), "Importe ARS": 0.0}
+                        for i in range(int(cant_cuotas))
+                    ])
+                    st.session_state["reset_grid_flag"] = False
+
+            if "grid_ladder_data" not in st.session_state or st.session_state.grid_ladder_data.empty:
                 base_f = dt.date.today()
-                st.session_state.grid_ladder_data = pd.DataFrame([{"Tramo": f"Cuota {i + 1}", "Fecha Vto.": base_f + dt.timedelta(days=7 * i), "Importe": 0.0} for i in range(int(cant_cuotas))])
-                st.session_state["reset_grid_flag"] = False
+                st.session_state.grid_ladder_data = pd.DataFrame([
+                    {"Tramo": "Cuota 1", "Fecha Vto.": base_f, "Importe ARS": 0.0}
+                ])
 
+            st.write("")
+            st.markdown("**Revisión del Cronograma:**")
             grid_edited = st.data_editor(
                 st.session_state.grid_ladder_data,
                 column_config={
                     "Tramo": st.column_config.TextColumn("Tramo", disabled=True),
                     "Fecha Vto.": st.column_config.DateColumn("Fecha Vto.", format="DD/MM/YYYY", required=True),
-                    "Importe": st.column_config.NumberColumn(f"Importe en {esc_moneda}", min_value=0.0, format="%.2f", required=True),
+                    "Importe ARS": st.column_config.NumberColumn("Importe en $ ARS", min_value=0.0, format="$ %d", required=True),
                 },
                 use_container_width=True,
                 hide_index=True,
                 key="grid_cuotas_editor",
             )
 
-            total_acordado = float(grid_edited["Importe"].sum())
-            total_ars_calc = total_acordado * esc_tc if esc_moneda == "USD" else total_acordado
-            st.info(f"📊 **Resumen:** {cant_cuotas} tramos · Total: **{esc_moneda} {total_acordado:,.2f}** {f'(Equivalente: **{fmt_ars(total_ars_calc)}**)' if esc_moneda == 'USD' else ''}")
+            total_acordado = float(grid_edited["Importe ARS"].sum())
+            cant_tramos_final = len(grid_edited)
+            st.info(f"📊 **Resumen del Acuerdo:** {cant_tramos_final} tramos · Total Acordado: **{fmt_ars(total_acordado)}**")
 
             if st.button("🚀 Guardar Escalera Completa en la Base", type="primary", use_container_width=True):
                 if not esc_proveedor or not esc_concepto or total_acordado <= 0:
-                    st.error("Verificá los datos ingresados.")
+                    st.error("Verificá los datos ingresados: indicá proveedor, presupuesto y cuotas mayores a cero.")
                 else:
                     with st.spinner("Guardando en Google Sheets..."):
-                        items_ladder = [{"fecha": pd.to_datetime(r["Fecha Vto."]), "importe": float(r["Importe"])} for _, r in grid_edited.iterrows()]
+                        items_ladder = [{"fecha": pd.to_datetime(r["Fecha Vto."]), "importe": float(r["Importe ARS"])} for _, r in grid_edited.iterrows()]
                         df_curr = get_df()
-                        new_rows = core.generate_custom_ladder(df_curr, esc_tesoreria, esc_proveedor, esc_proyecto, esc_concepto, esc_moneda, esc_tc, items_ladder)
+                        new_rows = core.generate_custom_ladder(
+                            df_existing=df_curr,
+                            tesoreria=esc_tesoreria,
+                            proveedor=esc_proveedor,
+                            proyecto=esc_proyecto,
+                            concepto=esc_concepto,
+                            moneda="ARS",
+                            tc=1.0,
+                            items=items_ladder,
+                        )
                         df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
                         if save_data_source(df_total):
                             st.session_state.df = core.normalize_df(df_total)
                             st.session_state["reset_grid_flag"] = True
-                            st.session_state["escalera_guardada_msj"] = f"¡Escalera para {esc_proveedor} guardada con éxito ({len(new_rows)} cuotas)!"
+                            st.session_state["escalera_guardada_msj"] = f"¡Escalera para {esc_proveedor} guardada con éxito ({len(new_rows)} cuotas registradas)!"
                             time.sleep(0.5)
                             st.rerun()
 
@@ -897,15 +999,12 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     tesoreria_sel = st.selectbox("Sede", core.TESORERIAS_VALIDAS, index=core.TESORERIAS_VALIDAS.index(record["tesoreria"]) if record is not None else 0)
                     fecha_pago = st.date_input("Fecha", value=record["fecha"].date() if record is not None and pd.notna(record["fecha"]) else dt.date.today())
                     modo_p = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True)
-                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=proveedores_existentes.index(record["proveedor"]) if record is not None else 0) if modo_p == "Existente" and proveedores_existentes else st.text_input("Nombre nuevo", value=record["proveedor"] if record is not None else "").strip().upper()
+                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=proveedores_existentes.index(record["proveedor"]) if record is not None and record["proveedor"] in proveedores_existentes else 0) if modo_p == "Existente" and proveedores_existentes else st.text_input("Nombre nuevo", value=record["proveedor"] if record is not None else "").strip().upper()
                     proyecto = st.text_input("Proyecto", value=record["proyecto"] if record is not None else "L2")
                     concepto = st.text_input("Operación / Concepto", value=record["concepto"] if record is not None else "")
-                    c_mon, c_tc = st.columns(2)
-                    moneda = c_mon.selectbox("Moneda", core.MONEDAS_VALIDAS, index=core.MONEDAS_VALIDAS.index(record["moneda"]) if record is not None else 0)
-                    tc = c_tc.number_input("TC", min_value=0.0, value=float(record["tc"]) if record is not None else 1.0, disabled=(moneda == "ARS"))
-                    importe = st.number_input("Importe", min_value=0.0, value=float(record["importe"]) if record is not None else 0.0, step=50000.0)
+                    importe = st.number_input("Importe en $ ARS", min_value=0.0, value=float(record["importe"]) if record is not None else 0.0, step=50000.0)
                     estado = st.selectbox("Estado", core.ESTADOS_VALIDOS, index=core.ESTADOS_VALIDOS.index(record["estado"]) if record is not None else 0)
-                    obs = st.text_area("Notas", value=record["obs"] if record is not None else "")
+                    obs = st.text_area("Notas internas", value=record["obs"] if record is not None else "")
 
                     b1, b2 = st.columns(2)
                     sub = b1.form_submit_button("💾 Guardar", type="primary", use_container_width=True)
@@ -915,11 +1014,11 @@ if modulo_activo == "💵 Gestión de Tesorería":
                         df_current = get_df()
                         if record is not None:
                             idx = df_current.index[df_current["id"] == editing_id][0]
-                            df_current.loc[idx, ["tesoreria", "fecha", "proveedor", "proyecto", "concepto", "moneda", "importe", "tc", "estado", "obs"]] = [tesoreria_sel, pd.Timestamp(fecha_pago), proveedor, proyecto, concepto, moneda, importe, tc, estado, obs]
+                            df_current.loc[idx, ["tesoreria", "fecha", "proveedor", "proyecto", "concepto", "moneda", "importe", "tc", "estado", "obs"]] = [tesoreria_sel, pd.Timestamp(fecha_pago), proveedor, proyecto, concepto, "ARS", importe, 1.0, estado, obs]
                             st.session_state.editing_id = None
                         else:
                             new_id = core.next_id(df_current)
-                            new_row = pd.DataFrame([{"id": new_id, "tesoreria": tesoreria_sel, "fecha": pd.Timestamp(fecha_pago), "proveedor": proveedor, "proyecto": proyecto, "concepto": concepto, "moneda": moneda, "importe": importe, "tc": tc, "estado": estado, "obs": obs}])
+                            new_row = pd.DataFrame([{"id": new_id, "tesoreria": tesoreria_sel, "fecha": pd.Timestamp(fecha_pago), "proveedor": proveedor, "proyecto": proyecto, "concepto": concepto, "moneda": "ARS", "importe": importe, "tc": 1.0, "estado": estado, "obs": obs}])
                             df_current = pd.concat([df_current, new_row], ignore_index=True)
                         set_df(df_current, sync_cloud=True)
                         st.rerun()
@@ -951,7 +1050,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
             st.download_button("⬇️ Descargar Excel Completo", xlsx_data, f"base_pagos_efectivo_{dt.date.today().isoformat()}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
 
 # ===========================================================================
-# MÓDULO 2: ANALIZADOR DE LIBRADORES · BCRA (NATIVO STREAMLIT)
+# MÓDULO 2: ANALIZADOR DE LIBRADORES · BCRA (NATIVO STREAMLIT DARK)
 # ===========================================================================
 elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
     col_t_bcra, col_btns_bcra = st.columns([3, 1.2])
@@ -1043,7 +1142,6 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 unsafe_allow_html=True,
             )
 
-            # Construcción de la grilla de filas nativas
             table_rows = []
             for x in data_bcra:
                 sit = x["worst"]
