@@ -202,8 +202,8 @@ def fmt_ars(value: float) -> str:
 # Barra lateral: Finanzas (For Drink SA)
 # ---------------------------------------------------------------------------
 
-st.sidebar.title("💼 Finanzas")[cite: 8]
-st.sidebar.caption("For Drink SA - Centro Operativo")[cite: 8]
+st.sidebar.title("💼 Finanzas")
+st.sidebar.caption("For Drink SA - Centro Operativo")
 
 if conn is not None:
     st.sidebar.markdown(
@@ -640,14 +640,14 @@ if modulo_activo == "💵 Gestión de Tesorería":
 
             st.divider()
 
-            # Observaciones consolidadas
+            # Observaciones consolidadas con botón interactivo
             todas_obs = [str(o).strip() for o in df_p["obs"].dropna().unique() if str(o).strip()]
-            with st.expander("🔍 Ver detalle de observaciones del acuerdo"):[cite: 14]
+            with st.expander("🔍 Ver detalle de observaciones del acuerdo"):
                 if todas_obs:
                     for idx_o, obs_t in enumerate(todas_obs, 1):
-                        st.markdown(f"**Nota {idx_o}:** {obs_t}")[cite: 14]
+                        st.markdown(f"**Nota {idx_o}:** {obs_t}")
                 else:
-                    st.caption("No hay notas u observaciones adicionales registradas para este plan.")[cite: 14]
+                    st.caption("No hay notas u observaciones adicionales registradas para este plan.")
 
             def merge_concepto_obs(r):
                 c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) else ""
@@ -749,7 +749,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     pdf_data.append([f_str, c_str, fmt_ars(m_val), str(r["Estado"])])
 
                 # FILA DE TOTALES GENERALES AL PIE
-                pdf_data.append(["TOTAL ACORDADO", "", fmt_ars(total_cuotas_ars), ""])[cite: 13]
+                pdf_data.append(["TOTAL ACORDADO", "", fmt_ars(total_cuotas_ars), ""])
 
                 num_rows = len(pdf_data)
                 t = Table(pdf_data, colWidths=[80, 240, 115, 85])
