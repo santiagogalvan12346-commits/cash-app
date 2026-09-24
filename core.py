@@ -68,7 +68,7 @@ def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     df["id"] = df["id"].astype(str).str.strip()
     df["tesoreria"] = df["tesoreria"].astype(str).str.strip()
-    df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+    df["fecha"] = pd.to_datetime(df["fecha"], dayfirst=True, format="mixed", errors="coerce")
     df["proveedor"] = df["proveedor"].astype(str).str.strip()
     df["proyecto"] = df["proyecto"].astype(str).str.strip()
     df["concepto"] = df["concepto"].astype(str).str.strip()
