@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import calendar
 import datetime as dt
+import importlib
 import re
 import time
 from io import BytesIO
@@ -36,9 +37,7 @@ try:
 except ImportError:
     HAS_GSHEETS = False
 
-import importlib
 import core
-
 importlib.reload(core)
 
 # ---------------------------------------------------------------------------
@@ -112,16 +111,47 @@ st.markdown(
         background: #18202a;
         border: 1px solid #2d3748;
         border-radius: 8px;
-        padding: 8px;
-        min-height: 95px;
+        padding: 8px 10px;
+        min-height: 96px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
     .cal-day-header {
         display: flex;
         justify-content: space-between;
-        font-size: 11.5px;
+        align-items: center;
+        font-size: 12px;
         font-weight: 700;
         color: #94a3b8;
-        margin-bottom: 4px;
+    }
+    .cal-day-total {
+        font-size: 13px;
+        font-weight: 800;
+        color: #38bdf8;
+        margin-top: 4px;
+    }
+    .cal-details-summary {
+        font-size: 10px;
+        color: #94a3b8;
+        cursor: pointer;
+        outline: none;
+        user-select: none;
+        margin-top: 4px;
+    }
+    .cal-details-summary:hover {
+        color: #38bdf8;
+    }
+    .banco-chip {
+        display: inline-block;
+        padding: 4px 10px;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        font-size: 11px;
+        color: #e2e8f0;
+        margin-right: 6px;
+        margin-bottom: 6px;
     }
     </style>
     """,
@@ -223,6 +253,9 @@ def init_state() -> None:
         st.session_state.sede_global = core.SEDE_CONSOLIDADO
     if "feriados" not in st.session_state:
         st.session_state.feriados = []
+    if "semaforos_mes" not in st.session_state:
+        # Diccionario de umbrales por mes: {'2026-09': (verde, amarillo, naranja)}
+        st.session_state.semaforos_mes = {}
 
 
 init_state()
@@ -1116,6 +1149,31 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     st.title("Clearing Bancario — Cheques Emitidos")
     st.caption("Seguimiento diario de cámaras compensadoras por banco emisor · For Drink SA")
 
+    # KPIs superiores
+    kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []))
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total en Cheques", fmt_ars(kpis_ch["total_comprometido"]))
+    c2.metric("Cheques Emitidos", f"{kpis_ch['cant_cheques']} valores")
+    c3.metric("Promedio Diario Hábil", fmt_ars(kpis_ch["promedio_diario"]), help="Calculado excluyendo sábados, domingos y feriados marcados.")
+    c4.metric("Pico Máximo Diario", fmt_ars(kpis_ch["pico_maximo"]))
+
+    # Matriz sutil de concentración por banco
+    if kpis_ch.get("bancos_distribucion"):
+        chips_html = "".join([
+            f"<div class='banco-chip'><b>{b}</b>: {pct:.1f}% <span style='color:#94a3b8;'>({fmt_ars(info['monto'])})</span></div>"
+            for b, info in kpis_ch["bancos_distribucion"].items()
+            for pct in [info["pct"]]
+        ])
+        st.markdown(
+            f"""
+            <div style="background:#18202a; border:1px solid #2d3748; border-radius:10px; padding:10px 14px; margin-top:8px; margin-bottom:14px;">
+                <span class="bcra-label-dark" style="margin-bottom:6px; display:block;">Concentración por Banco Emisor:</span>
+                <div style="display:flex; flex-wrap:wrap; gap:4px;">{chips_html}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     tab_sabana, tab_cal, tab_carga_ch = st.tabs([
         "🗓️ Sábana de Cámaras (Flujo Diario)",
         "📅 Calendario Visual",
@@ -1126,20 +1184,32 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     # TAB A: Sábana de Cámaras
     # -----------------------------------------------------------------------
     with tab_sabana:
-        with st.expander("⚙️ Configurar Semáforo de Tensión y Feriados", expanded=False):
-            col_sem1, col_sem2, col_sem3 = st.columns(3)
-            with col_sem1:
-                u_verde = st.number_input("🟢 Hasta (Holgado)", min_value=1_000_000.0, value=50_000_000.0, step=5_000_000.0, format="%.0f")
-            with col_sem2:
-                u_amarillo = st.number_input("🟡 Hasta (Atención)", min_value=u_verde, value=100_000_000.0, step=5_000_000.0, format="%.0f")
-            with col_sem3:
-                u_naranja = st.number_input("🟠 Hasta (Tensión Alta)", min_value=u_amarillo, value=150_000_000.0, step=5_000_000.0, format="%.0f")
+        # Configuración de Semáforos por Mes y Feriados
+        meses_unicos = sorted(df_ch["MES_KEY"].dropna().unique().tolist()) if not df_ch.empty else []
+        mes_actual_default = dt.date.today().strftime("%Y-%m")
+        if mes_actual_default not in meses_unicos and meses_unicos:
+            mes_actual_default = meses_unicos[0]
 
-            st.caption("🔴 Por encima de ese valor se considera **Tensión Crítica**.")
+        with st.expander("⚙️ Configurar Semáforo por Mes y Feriados", expanded=False):
+            col_m_sel, col_sem1, col_sem2, col_sem3 = st.columns([1.2, 1, 1, 1])
+            with col_m_sel:
+                mes_conf = st.selectbox("Mes a calibrar:", meses_unicos if meses_unicos else [mes_actual_default], key="mes_conf_sem")
+            
+            # Recuperar o inicializar valores del mes
+            defaults_mes = st.session_state.semaforos_mes.get(mes_conf, (50_000_000.0, 100_000_000.0, 150_000_000.0))
+            with col_sem1:
+                u_verde = st.number_input("🟢 Hasta (Holgado)", min_value=1_000_000.0, value=defaults_mes[0], step=5_000_000.0, format="%.0f", key=f"uv_{mes_conf}")
+            with col_sem2:
+                u_amarillo = st.number_input("🟡 Hasta (Atención)", min_value=u_verde, value=defaults_mes[1], step=5_000_000.0, format="%.0f", key=f"ua_{mes_conf}")
+            with col_sem3:
+                u_naranja = st.number_input("🟠 Hasta (Tensión)", min_value=u_amarillo, value=defaults_mes[2], step=5_000_000.0, format="%.0f", key=f"un_{mes_conf}")
+
+            st.session_state.semaforos_mes[mes_conf] = (u_verde, u_amarillo, u_naranja)
+            st.caption(f"Configuración guardada para **{mes_conf}**. 🔴 Por encima de {fmt_ars(u_naranja)} se destaca como Tensión Crítica.")
 
             st.markdown("---")
             feriados_cargados = st.session_state.get("feriados", [])
-            f_feriado_nuevo = st.date_input("Marcar fecha como feriado nacional / bancario", value=None)
+            f_feriado_nuevo = st.date_input("Marcar fecha como feriado bancario:", value=None, key="f_feriado_input")
             col_b_f1, col_b_f2 = st.columns([1, 3])
             if col_b_f1.button("Agregar feriado") and f_feriado_nuevo:
                 if f_feriado_nuevo not in feriados_cargados:
@@ -1147,22 +1217,14 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     st.session_state.feriados = sorted(feriados_cargados)
                     st.rerun()
             if feriados_cargados:
-                col_b_f2.write(f"Feriados registrados: {', '.join([d.strftime('%d/%m/%Y') for d in feriados_cargados])}")
-                if st.button("Limpiar todos los feriados"):
+                col_b_f2.write(f"Feriados marcados: {', '.join([d.strftime('%d/%m/%Y') for d in feriados_cargados])}")
+                if st.button("Limpiar todos los feriados", key="btn_clear_feriados"):
                     st.session_state.feriados = []
                     st.rerun()
 
-        # KPIs superiores
-        kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []))
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total en Cheques", fmt_ars(kpis_ch["total_comprometido"]))
-        c2.metric("Cheques Emitidos", f"{kpis_ch['cant_cheques']} valores")
-        c3.metric("Promedio Diario Hábil", fmt_ars(kpis_ch["promedio_diario"]), help="Calculado excluyendo sábados, domingos y feriados marcados.")
-        c4.metric("Pico Máximo Diario", fmt_ars(kpis_ch["pico_maximo"]))
-
         st.divider()
 
-        # Filtros de visualización (por defecto desactivado para ver la sábana completa)
+        # Filtro de fecha y descarga
         hoy_date = dt.date.today()
         col_filtro_ch, col_desc_ch, col_desc_pdf = st.columns([2, 1.2, 1.2])
         with col_filtro_ch:
@@ -1175,18 +1237,27 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             st.info("No hay cheques pendientes registrados para el período seleccionado.")
         else:
             def style_clearing(row):
+                is_sub = row.get("IS_SUBTOTAL", False)
+                styles = [""] * len(row)
+
+                if is_sub:
+                    # Fila de subtotal mensual: Fondo contrastado, texto bold blanco
+                    sub_style = "background-color: #243042; font-weight: 800; color: #38bdf8; border-top: 1px solid #475569; border-bottom: 2px solid #64748b;"
+                    return [sub_style] * len(row)
+
                 val = row["TOTAL"]
-                style_tot = ""
-                if val > u_naranja:
+                mes_k = row.get("MES_KEY", "")
+                u_v, u_a, u_n = st.session_state.semaforos_mes.get(mes_k, (50_000_000.0, 100_000_000.0, 150_000_000.0))
+
+                if val > u_n:
                     style_tot = "background-color: #7f1d1d; color: #fecaca; font-weight: bold;"
-                elif val > u_amarillo:
+                elif val > u_a:
                     style_tot = "background-color: #7c2d12; color: #ffedd5; font-weight: bold;"
-                elif val > u_verde:
+                elif val > u_v:
                     style_tot = "background-color: #78350f; color: #fef3c7; font-weight: bold;"
                 else:
                     style_tot = "background-color: #064e3b; color: #d1fae5; font-weight: bold;"
 
-                styles = [""] * len(row)
                 idx_tot = list(row.index).index("TOTAL")
                 styles[idx_tot] = style_tot
                 return styles
@@ -1211,7 +1282,9 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
                 for r_idx, (_, r) in enumerate(pivot_df.iterrows()):
                     row_num = h_row + 1 + r_idx
-                    ws.cell(row=row_num, column=1, value=r["FECHA_LABEL"]).alignment = Alignment(horizontal="center")
+                    is_sub = r.get("IS_SUBTOTAL", False)
+                    ws.cell(row=row_num, column=1, value=r["FECHA_LABEL"]).alignment = Alignment(horizontal="center" if not is_sub else "left")
+
                     for b_idx, b in enumerate(bancos_list, 2):
                         v = float(r.get(b, 0.0))
                         cell_b = ws.cell(row=row_num, column=b_idx, value=v if v > 0 else "")
@@ -1223,10 +1296,11 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     cell_t.font = Font(bold=True)
                     cell_t.number_format = "$ #,##0"
 
-                    if tot_v > u_naranja:
-                        cell_t.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-                    elif tot_v > u_amarillo:
-                        cell_t.fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+                    if is_sub:
+                        for col_idx in range(1, len(headers) + 1):
+                            c_sub = ws.cell(row=row_num, column=col_idx)
+                            c_sub.font = Font(bold=True)
+                            c_sub.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
 
                 for col in ws.columns:
                     max_len = max(len(str(cell.value or "")) for cell in col)
@@ -1262,7 +1336,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
                 col_w = max(42, int(780 / len(headers)))
                 t = Table(table_data, colWidths=[col_w] * len(headers))
-                t.setStyle(TableStyle([
+                t_styles = [
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -1272,7 +1346,13 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     ('FONTSIZE', (0, 1), (-1, -1), 7),
                     ('TOPPADDING', (0, 0), (-1, -1), 3),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ]))
+                ]
+                for r_i, (_, r) in enumerate(pivot_df.iterrows(), 1):
+                    if r.get("IS_SUBTOTAL"):
+                        t_styles.append(('BACKGROUND', (0, r_i), (-1, r_i), colors.HexColor('#E2E8F0')))
+                        t_styles.append(('FONTNAME', (0, r_i), (-1, r_i), 'Helvetica-Bold'))
+
+                t.setStyle(TableStyle(t_styles))
                 story.append(t)
                 doc.build(story)
                 return buf.getvalue()
@@ -1296,28 +1376,32 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     use_container_width=True,
                 )
 
-            view_matriz = matriz_ch.rename(columns={"FECHA_LABEL": "FECHA"}).drop(columns=["Fecha Pago"])
-            format_dict = {b: lambda v: fmt_ars(v) if v > 0 else "" for b in bancos_activos}
+            view_matriz = matriz_ch.rename(columns={"FECHA_LABEL": "FECHA"}).drop(columns=["Fecha Pago", "PERIODO"], errors="ignore")
+            format_dict = {b: lambda v: fmt_ars(v) if v > 0 else "—" for b in bancos_activos}
             format_dict["TOTAL"] = fmt_ars
 
+            cols_to_show = ["FECHA"] + bancos_activos + ["TOTAL", "IS_SUBTOTAL", "MES_KEY"]
             st.dataframe(
-                view_matriz.style.apply(style_clearing, axis=1).format(format_dict),
+                view_matriz[cols_to_show].style.apply(style_clearing, axis=1).format(format_dict),
                 use_container_width=True,
-                height=560,
+                height=580,
                 hide_index=True,
+                column_config={
+                    "IS_SUBTOTAL": None,
+                    "MES_KEY": None,
+                },
             )
 
     # -----------------------------------------------------------------------
-    # TAB B: Calendario Visual
+    # TAB B: Calendario Visual (Limpio con Acordeón)
     # -----------------------------------------------------------------------
     with tab_cal:
         st.subheader("📅 Calendario Visual de Clearing")
         col_cal_m, col_cal_y = st.columns([1, 1])
-        mes_cal_sel = col_cal_m.selectbox("Mes", list(core.MESES_ES.values()), index=dt.date.today().month - 1)
-        ano_cal_sel = col_cal_y.number_input("Año", min_value=2024, max_value=2030, value=dt.date.today().year)
+        mes_cal_sel = col_cal_m.selectbox("Mes", list(core.MESES_ES.values()), index=dt.date.today().month - 1, key="cal_mes_select")
+        ano_cal_sel = col_cal_y.number_input("Año", min_value=2024, max_value=2030, value=dt.date.today().year, key="cal_ano_input")
 
         num_mes_sel = [k for k, v in core.MESES_ES.items() if v == mes_cal_sel][0]
-
         cal = calendar.monthcalendar(ano_cal_sel, num_mes_sel)
         dias_nombres = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
@@ -1330,31 +1414,45 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             for d_idx, day in enumerate(week):
                 with w_cols[d_idx]:
                     if day == 0:
-                        st.markdown("<div style='min-height:95px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height:96px;'></div>", unsafe_allow_html=True)
                     else:
                         fecha_d = dt.date(ano_cal_sel, num_mes_sel, day)
                         df_dia = df_ch[df_ch["Fecha Pago"].dt.date == fecha_d]
                         tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
 
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
-                        lbl_feriado = " <span style='color:#f59e0b;'>(Feriado)</span>" if es_feriado else ""
+                        lbl_feriado = " <span style='color:#f59e0b; font-size:10px;'>(Feriado)</span>" if es_feriado else ""
 
-                        items_bancos = ""
-                        if not df_dia.empty:
+                        # Vista limpia: Total destacado + acordeón colapsable
+                        if tot_dia > 0:
+                            items_bancos = ""
                             por_banco = df_dia.groupby("Banco")["Importe"].sum()
                             for b, m in por_banco.items():
-                                items_bancos += f"<div style='font-size:10px; color:#cbd5e1;'>• {b}: <b>{fmt_ars(m)}</b></div>"
+                                items_bancos += f"<div style='font-size:10px; color:#cbd5e1; margin-bottom:2px;'>• {b}: <b>{fmt_ars(m)}</b></div>"
 
-                        tot_str = f"<div style='font-size:11.5px; font-weight:800; color:{'#ef4444' if tot_dia > 0 else '#64748b'}; margin-top:4px;'>Total: {fmt_ars(tot_dia)}</div>" if tot_dia > 0 else ""
+                            tot_html = f"<div class='cal-day-total'>{fmt_ars(tot_dia)}</div>"
+                            details_html = f"""
+                            <details style="margin-top:4px;">
+                                <summary class="cal-details-summary">▾ Ver detalle</summary>
+                                <div style="margin-top:4px; padding-top:4px; border-top:1px solid #334155;">
+                                    {items_bancos}
+                                </div>
+                            </details>
+                            """
+                        else:
+                            tot_html = "<div style='font-size:11px; color:#64748b; margin-top:6px;'>Sin vencimientos</div>"
+                            details_html = ""
 
                         st.markdown(
                             f"""
                             <div class='cal-day-box'>
-                                <div class='cal-day-header'>
-                                    <span>{day:02d}</span>{lbl_feriado}
+                                <div>
+                                    <div class='cal-day-header'>
+                                        <span>{day:02d}</span>{lbl_feriado}
+                                    </div>
+                                    {tot_html}
                                 </div>
-                                {items_bancos}
-                                {tot_str}
+                                {details_html}
                             </div>
                             """,
                             unsafe_allow_html=True,
@@ -1365,7 +1463,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     # -----------------------------------------------------------------------
     with tab_carga_ch:
         st.subheader("➕ Cargar Nuevos Cheques Emitidos")
-        st.caption("Los cheques cargados completan todas las columnas de calendario y se sincronizan directamente con Google Sheets.")
+        st.caption("Los cheques cargados completan automáticamente todas las columnas de calendario y se sincronizan directamente con Google Sheets.")
 
         if "cheque_guardado_msj" in st.session_state:
             st.success(st.session_state.cheque_guardado_msj, icon="✅")
