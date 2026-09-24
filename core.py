@@ -32,7 +32,7 @@ COLUMNS = [
 COLUMNS_CHEQUES = [
     "Banco", "EMPRESA", "Cuenta Libradora", "Fecha Emisión", "Fecha Pago",
     "DIA", "DIA.1", "MES", "MES.2", "AÑO", "Nro. de Cheque", "Importe",
-    "CUIT Beneficiario", "Razón Social Beneficiario"
+    "CUIT Beneficiario", "Razón Social Beneficiario", "Estado", "Motivo Anulación"
 ]
 
 DIAS_ES = {0: "lunes", 1: "martes", 2: "miércoles", 3: "jueves", 4: "viernes", 5: "sábado", 6: "domingo"}
@@ -56,7 +56,7 @@ class KPIs:
 
 
 def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """Normaliza la base de pagos de tesorería preservando formato de fechas y semanas."""
+    """Normaliza la base de pagos de tesorería preservando fechas y semanas en español."""
     if df_raw is None or df_raw.empty:
         df = pd.DataFrame(columns=COLUMNS)
     else:
@@ -69,7 +69,7 @@ def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["id"] = df["id"].astype(str).str.strip()
     df["tesoreria"] = df["tesoreria"].astype(str).str.strip()
     
-    # Parseo estricto de fecha día primero (dd/mm/aaaa) para evitar inversión de meses
+    # Parseo estricto dd/mm/aaaa
     df["fecha"] = pd.to_datetime(df["fecha"], dayfirst=True, format="mixed", errors="coerce")
     
     df["proveedor"] = df["proveedor"].astype(str).str.strip()
@@ -101,7 +101,6 @@ def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["estado"] = df["estado"].apply(lambda e: e if e in ESTADOS_VALIDOS else "Pendiente")
     df["obs"] = df["obs"].fillna("").astype(str)
 
-    # Columnas calculadas
     df["importe_ars"] = df.apply(
         lambda r: r["importe"] * r["tc"] if r["moneda"] == "USD" else r["importe"],
         axis=1
@@ -112,7 +111,7 @@ def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
         lambda d: (d - pd.Timedelta(days=d.weekday())).floor("D") if pd.notna(d) else pd.NaT
     )
     
-    # Formato exacto de semana: sem 21/09 - 25/09
+    # Formato exacto semanal laboral: sem 21/09 - 25/09
     df["semana_etiqueta"] = df["lunes_semana"].apply(
         lambda d: f"sem {d.strftime('%d/%m')} - {(d + pd.Timedelta(days=4)).strftime('%d/%m')}" if pd.notna(d) else ""
     )
@@ -183,7 +182,6 @@ def build_weekly_matrix(df: pd.DataFrame) -> pd.DataFrame:
     piv["TOTAL SEMANAL"] = piv[prov_cols].sum(axis=1)
     piv["ACUMULADO"] = piv["TOTAL SEMANAL"].cumsum()
 
-    # Fila totalizadora
     tot_row = {"semana_etiqueta": "TOTAL POR PROVEEDOR"}
     for p in prov_cols:
         tot_row[p] = piv[p].sum()
@@ -273,12 +271,13 @@ def export_to_excel(df: pd.DataFrame) -> bytes:
 # ---------------------------------------------------------------------------
 
 def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """Estandariza los tipos de datos de cheques sin alterar decimales ni fechas."""
+    """Estandariza los cheques preservando estado y trazabilidad lógica."""
     if df_raw is None or df_raw.empty:
         return pd.DataFrame(columns=[
             "Banco", "EMPRESA", "Cuenta Libradora", "Fecha Emisión", "Fecha Pago",
             "DIA_TXT", "DIA_NUM", "MES_NUM", "MES_TXT", "AÑO", "Nro. de Cheque", "Importe",
-            "CUIT Beneficiario", "Razón Social Beneficiario", "FECHA_LABEL", "MES_KEY"
+            "CUIT Beneficiario", "Razón Social Beneficiario", "Estado", "Motivo Anulación",
+            "FECHA_LABEL", "MES_KEY"
         ])
 
     df = df_raw.copy()
@@ -346,11 +345,26 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     if "Banco" in df.columns:
         df["Banco"] = df["Banco"].astype(str).str.strip().str.upper()
 
+    if "Nro. de Cheque" in df.columns:
+        df["Nro. de Cheque"] = df["Nro. de Cheque"].astype(str).str.strip().replace("nan", "")
+
+    # Estado de cheque (Baja Lógica): "Emitido" o "Anulado"
+    if "Estado" not in df.columns:
+        df["Estado"] = "Emitido"
+    else:
+        df["Estado"] = df["Estado"].fillna("Emitido").astype(str).str.strip()
+        df.loc[df["Estado"] == "", "Estado"] = "Emitido"
+
+    if "Motivo Anulación" not in df.columns:
+        df["Motivo Anulación"] = ""
+    else:
+        df["Motivo Anulación"] = df["Motivo Anulación"].fillna("").astype(str).str.strip()
+
     return df
 
 
 def prepare_cheques_to_save(df: pd.DataFrame) -> pd.DataFrame:
-    """Prepara el DataFrame con las 14 columnas exactas de Google Sheets."""
+    """Prepara el DataFrame para persistir en Google Sheets con trazabilidad."""
     df_out = pd.DataFrame()
     df_out["Banco"] = df["Banco"].astype(str).str.strip().str.upper()
     df_out["EMPRESA"] = df.get("EMPRESA", "FD")
@@ -370,12 +384,38 @@ def prepare_cheques_to_save(df: pd.DataFrame) -> pd.DataFrame:
     df_out["Importe"] = pd.to_numeric(df["Importe"], errors="coerce").fillna(0.0).round(2)
     df_out["CUIT Beneficiario"] = df.get("CUIT Beneficiario", "")
     df_out["Razón Social Beneficiario"] = df.get("Razón Social Beneficiario", "")
+    df_out["Estado"] = df.get("Estado", "Emitido")
+    df_out["Motivo Anulación"] = df.get("Motivo Anulación", "")
 
     return df_out
 
 
+def check_cheque_duplicates(df_exist: pd.DataFrame, new_items: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Detecta cheques duplicados según Banco + Nro. de Cheque + Cuenta Libradora."""
+    def make_k(b, n, c):
+        return f"{str(b or '').strip().upper()}|{str(n or '').strip()}|{str(c or '').strip()}"
+
+    existing_keys = set()
+    if df_exist is not None and not df_exist.empty:
+        for _, r in df_exist.iterrows():
+            if str(r.get("Estado", "")).strip().lower() != "anulado":
+                k = make_k(r.get("Banco"), r.get("Nro. de Cheque"), r.get("Cuenta Libradora", ""))
+                existing_keys.add(k)
+
+    valids, dups = [], []
+    for item in new_items:
+        k = make_k(item.get("Banco"), item.get("Nro. de Cheque"), item.get("Cuenta Libradora", ""))
+        if k in existing_keys:
+            dups.append(item)
+        else:
+            existing_keys.add(k)
+            valids.append(item)
+
+    return valids, dups
+
+
 def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = None) -> dict:
-    """Calcula métricas clave garantizando compatibilidad de tipos de fecha."""
+    """Calcula métricas de clearing excluyendo valores anulados."""
     if df is None or df.empty or "Importe" not in df.columns:
         return {
             "total_comprometido": 0.0,
@@ -386,11 +426,23 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
             "bancos_distribucion": {},
         }
 
-    feriados_set = set(feriados or [])
-    total = float(pd.to_numeric(df["Importe"], errors="coerce").fillna(0.0).sum())
-    cant = len(df)
+    # Excluir cheques anulados de los cálculos de fondos
+    activos = df[df.get("Estado", "Emitido").astype(str).str.lower() != "anulado"].copy()
+    if activos.empty:
+        return {
+            "total_comprometido": 0.0,
+            "cant_cheques": 0,
+            "dias_habiles": 0,
+            "promedio_diario": 0.0,
+            "pico_maximo": 0.0,
+            "bancos_distribucion": {},
+        }
 
-    fechas_series = pd.to_datetime(df.get("Fecha Pago"), dayfirst=True, errors="coerce").dropna()
+    feriados_set = set(feriados or [])
+    total = float(pd.to_numeric(activos["Importe"], errors="coerce").fillna(0.0).sum())
+    cant = len(activos)
+
+    fechas_series = pd.to_datetime(activos.get("Fecha Pago"), dayfirst=True, errors="coerce").dropna()
     if fechas_series.empty:
         return {
             "total_comprometido": total,
@@ -408,13 +460,13 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
 
     df_temp = pd.DataFrame({
         "f": fechas_series.dt.date,
-        "m": pd.to_numeric(df["Importe"], errors="coerce").fillna(0.0)
+        "m": pd.to_numeric(activos["Importe"], errors="coerce").fillna(0.0)
     })
     pico = float(df_temp.groupby("f")["m"].sum().max()) if not df_temp.empty else 0.0
 
     bancos_dist = {}
-    if total > 0 and "Banco" in df.columns:
-        by_banco = df.groupby("Banco")["Importe"].sum().sort_values(ascending=False)
+    if total > 0 and "Banco" in activos.columns:
+        by_banco = activos.groupby("Banco")["Importe"].sum().sort_values(ascending=False)
         for b, m in by_banco.items():
             bancos_dist[b] = {"monto": float(m), "pct": (float(m) / total) * 100}
 
@@ -429,11 +481,11 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
 
 
 def build_clearing_matrix(df: pd.DataFrame, fecha_inicio: dt.date | None = None) -> tuple[pd.DataFrame, list[str]]:
-    """Genera la sábana de clearing agrupada por día con subtotales mensuales intercalados."""
+    """Genera la sábana de clearing agrupada por día con subtotales mensuales (excluyendo anulados)."""
     if df is None or df.empty:
         return pd.DataFrame(), []
 
-    sub = df.copy()
+    sub = df[df.get("Estado", "Emitido").astype(str).str.lower() != "anulado"].copy()
     sub["Fecha_Pago_DT"] = pd.to_datetime(sub.get("Fecha Pago"), dayfirst=True, errors="coerce")
     sub = sub.dropna(subset=["Fecha_Pago_DT"])
 
