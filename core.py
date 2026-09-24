@@ -40,6 +40,7 @@ MESES_ES = {
     1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
     7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
 }
+MESES_ES_UPPER = {k: v.upper() for k, v in MESES_ES.items()}
 MESES_ABR = {
     1: "ENE", 2: "FEB", 3: "MAR", 4: "ABR", 5: "MAY", 6: "JUN",
     7: "JUL", 8: "AGO", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DIC"
@@ -97,7 +98,6 @@ def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["estado"] = df["estado"].apply(lambda e: e if e in ESTADOS_VALIDOS else "Pendiente")
     df["obs"] = df["obs"].fillna("").astype(str)
 
-    # Columnas calculadas
     df["importe_ars"] = df.apply(
         lambda r: r["importe"] * r["tc"] if r["moneda"] == "USD" else r["importe"],
         axis=1
@@ -271,7 +271,7 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=[
             "Banco", "EMPRESA", "Cuenta Libradora", "Fecha Emisión", "Fecha Pago",
             "DIA_TXT", "DIA_NUM", "MES_NUM", "MES_TXT", "AÑO", "Nro. de Cheque", "Importe",
-            "CUIT Beneficiario", "Razón Social Beneficiario", "FECHA_LABEL"
+            "CUIT Beneficiario", "Razón Social Beneficiario", "FECHA_LABEL", "MES_KEY"
         ])
 
     df = df_raw.copy()
@@ -334,6 +334,7 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
         df["FECHA_LABEL"] = df["Fecha Pago"].apply(
             lambda d: f"{d.day:02d}-{MESES_ABR.get(d.month, '')}" if pd.notna(d) else ""
         )
+        df["MES_KEY"] = df["Fecha Pago"].dt.strftime("%Y-%m")
 
     if "Banco" in df.columns:
         df["Banco"] = df["Banco"].astype(str).str.strip().str.upper()
@@ -375,6 +376,7 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
             "dias_habiles": 0,
             "promedio_diario": 0.0,
             "pico_maximo": 0.0,
+            "bancos_distribucion": {},
         }
 
     feriados_set = set(feriados or [])
@@ -389,6 +391,7 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
             "dias_habiles": 1,
             "promedio_diario": total,
             "pico_maximo": total,
+            "bancos_distribucion": {},
         }
 
     fechas_unicas = fechas_series.dt.date.unique()
@@ -402,17 +405,25 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
     })
     pico = float(df_temp.groupby("f")["m"].sum().max()) if not df_temp.empty else 0.0
 
+    # Concentración por banco
+    bancos_dist = {}
+    if total > 0 and "Banco" in df.columns:
+        by_banco = df.groupby("Banco")["Importe"].sum().sort_values(ascending=False)
+        for b, m in by_banco.items():
+            bancos_dist[b] = {"monto": float(m), "pct": (float(m) / total) * 100}
+
     return {
         "total_comprometido": total,
         "cant_cheques": cant,
         "dias_habiles": dias_habiles,
         "promedio_diario": promedio,
         "pico_maximo": pico,
+        "bancos_distribucion": bancos_dist,
     }
 
 
 def build_clearing_matrix(df: pd.DataFrame, fecha_inicio: dt.date | None = None) -> tuple[pd.DataFrame, list[str]]:
-    """Genera la sábana de clearing agrupada por día y bancos sin fallar por tipo de dato."""
+    """Genera la sábana de clearing agrupada por día con subtotales mensuales intercalados."""
     if df is None or df.empty:
         return pd.DataFrame(), []
 
@@ -444,9 +455,35 @@ def build_clearing_matrix(df: pd.DataFrame, fecha_inicio: dt.date | None = None)
     banco_cols = [b for b in bancos if b in pivot.columns]
     pivot["TOTAL"] = pivot[banco_cols].sum(axis=1)
     pivot = pivot.sort_values("Fecha_Pago_DT").reset_index(drop=True)
-    pivot = pivot.rename(columns={"Fecha_Pago_DT": "Fecha Pago"})
 
-    return pivot, banco_cols
+    # Inserción de subtotales mensuales
+    rows_with_subtotals = []
+    pivot["PERIODO"] = pivot["Fecha_Pago_DT"].dt.to_period("M")
+
+    for periodo, grp in pivot.groupby("PERIODO", sort=False):
+        for _, r in grp.iterrows():
+            item = r.to_dict()
+            item["IS_SUBTOTAL"] = False
+            item["MES_KEY"] = f"{periodo.year}-{periodo.month:02d}"
+            rows_with_subtotals.append(item)
+
+        # Fila de subtotal del mes
+        mes_nombre = MESES_ES_UPPER.get(periodo.month, "")
+        subtot_row = {
+            "Fecha_Pago_DT": pd.NaT,
+            "FECHA_LABEL": f"SUBTOTAL {mes_nombre} {periodo.year}",
+            "IS_SUBTOTAL": True,
+            "MES_KEY": f"{periodo.year}-{periodo.month:02d}",
+        }
+        for b in banco_cols:
+            subtot_row[b] = grp[b].sum()
+        subtot_row["TOTAL"] = grp["TOTAL"].sum()
+        rows_with_subtotals.append(subtot_row)
+
+    df_res = pd.DataFrame(rows_with_subtotals)
+    df_res = df_res.rename(columns={"Fecha_Pago_DT": "Fecha Pago"})
+
+    return df_res, banco_cols
 
 
 # ---------------------------------------------------------------------------
