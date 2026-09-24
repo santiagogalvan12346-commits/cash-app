@@ -56,7 +56,7 @@ class KPIs:
 
 
 def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """Normaliza la base de pagos de tesorería."""
+    """Normaliza la base de pagos de tesorería preservando formato de fechas y semanas."""
     if df_raw is None or df_raw.empty:
         df = pd.DataFrame(columns=COLUMNS)
     else:
@@ -68,7 +68,10 @@ def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     df["id"] = df["id"].astype(str).str.strip()
     df["tesoreria"] = df["tesoreria"].astype(str).str.strip()
+    
+    # Parseo estricto de fecha día primero (dd/mm/aaaa) para evitar inversión de meses
     df["fecha"] = pd.to_datetime(df["fecha"], dayfirst=True, format="mixed", errors="coerce")
+    
     df["proveedor"] = df["proveedor"].astype(str).str.strip()
     df["proyecto"] = df["proyecto"].astype(str).str.strip()
     df["concepto"] = df["concepto"].astype(str).str.strip()
@@ -98,6 +101,7 @@ def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["estado"] = df["estado"].apply(lambda e: e if e in ESTADOS_VALIDOS else "Pendiente")
     df["obs"] = df["obs"].fillna("").astype(str)
 
+    # Columnas calculadas
     df["importe_ars"] = df.apply(
         lambda r: r["importe"] * r["tc"] if r["moneda"] == "USD" else r["importe"],
         axis=1
@@ -107,8 +111,10 @@ def normalize_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["lunes_semana"] = df["fecha"].apply(
         lambda d: (d - pd.Timedelta(days=d.weekday())).floor("D") if pd.notna(d) else pd.NaT
     )
+    
+    # Formato exacto de semana: sem 21/09 - 25/09
     df["semana_etiqueta"] = df["lunes_semana"].apply(
-        lambda d: f"Sem. {d.strftime('%d/%m')}" if pd.notna(d) else ""
+        lambda d: f"sem {d.strftime('%d/%m')} - {(d + pd.Timedelta(days=4)).strftime('%d/%m')}" if pd.notna(d) else ""
     )
 
     return df
@@ -177,6 +183,7 @@ def build_weekly_matrix(df: pd.DataFrame) -> pd.DataFrame:
     piv["TOTAL SEMANAL"] = piv[prov_cols].sum(axis=1)
     piv["ACUMULADO"] = piv["TOTAL SEMANAL"].cumsum()
 
+    # Fila totalizadora
     tot_row = {"semana_etiqueta": "TOTAL POR PROVEEDOR"}
     for p in prov_cols:
         tot_row[p] = piv[p].sum()
@@ -229,7 +236,7 @@ def generate_custom_ladder(
         rows.append({
             "id": new_id,
             "tesoreria": tesoreria,
-            "fecha": pd.to_datetime(item["fecha"]),
+            "fecha": pd.to_datetime(item["fecha"], dayfirst=True),
             "proveedor": proveedor,
             "proyecto": proyecto,
             "concepto": concepto,
@@ -266,7 +273,7 @@ def export_to_excel(df: pd.DataFrame) -> bytes:
 # ---------------------------------------------------------------------------
 
 def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """Estandariza los tipos de datos de la base de cheques emitidos sin alterar decimales ni fechas."""
+    """Estandariza los tipos de datos de cheques sin alterar decimales ni fechas."""
     if df_raw is None or df_raw.empty:
         return pd.DataFrame(columns=[
             "Banco", "EMPRESA", "Cuenta Libradora", "Fecha Emisión", "Fecha Pago",
@@ -405,7 +412,6 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
     })
     pico = float(df_temp.groupby("f")["m"].sum().max()) if not df_temp.empty else 0.0
 
-    # Concentración por banco
     bancos_dist = {}
     if total > 0 and "Banco" in df.columns:
         by_banco = df.groupby("Banco")["Importe"].sum().sort_values(ascending=False)
@@ -456,7 +462,6 @@ def build_clearing_matrix(df: pd.DataFrame, fecha_inicio: dt.date | None = None)
     pivot["TOTAL"] = pivot[banco_cols].sum(axis=1)
     pivot = pivot.sort_values("Fecha_Pago_DT").reset_index(drop=True)
 
-    # Inserción de subtotales mensuales
     rows_with_subtotals = []
     pivot["PERIODO"] = pivot["Fecha_Pago_DT"].dt.to_period("M")
 
@@ -467,7 +472,6 @@ def build_clearing_matrix(df: pd.DataFrame, fecha_inicio: dt.date | None = None)
             item["MES_KEY"] = f"{periodo.year}-{periodo.month:02d}"
             rows_with_subtotals.append(item)
 
-        # Fila de subtotal del mes
         mes_nombre = MESES_ES_UPPER.get(periodo.month, "")
         subtot_row = {
             "Fecha_Pago_DT": pd.NaT,
