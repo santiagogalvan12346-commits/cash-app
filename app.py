@@ -104,9 +104,11 @@ st.markdown(
         background: #1e293b !important;
         color: #f1f5f9 !important;
         border: 1px solid #334155 !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         font-weight: 600 !important;
         transition: all 0.15s ease-in-out !important;
+        font-size: 11px !important;
+        padding: 3px 6px !important;
     }
     div.stButton > button:first-child:hover {
         background: #2563eb !important;
@@ -124,27 +126,6 @@ st.markdown(
         background: #0284c7 !important;
         border-color: #38bdf8 !important;
         color: #ffffff !important;
-    }
-
-    /* Tarjetas del Calendario Minimalista: Multilínea vertical sin recortes */
-    div[data-testid="column"] div.stButton > button {
-        height: 92px !important;
-        white-space: pre-line !important;
-        line-height: 1.35 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
-        align-items: flex-start !important;
-        padding: 8px 10px !important;
-        text-align: left !important;
-        border-radius: 8px !important;
-    }
-    div[data-testid="column"] div.stButton > button p {
-        font-family: 'JetBrains Mono', monospace !important;
-        font-size: 11.5px !important;
-        width: 100% !important;
-        text-align: left !important;
-        white-space: pre-line !important;
     }
 
     /* Badges de bancos minimalistas */
@@ -1354,27 +1335,52 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             for d_idx, day in enumerate(week):
                 with w_cols[d_idx]:
                     if day == 0:
-                        st.markdown("<div style='min-height:92px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height:102px;'></div>", unsafe_allow_html=True)
                     else:
                         fecha_d = dt.date(ano_cal_sel, num_mes_sel, day)
                         df_dia = df_activos_cal[df_activos_cal["Fecha Pago"].dt.date == fecha_d]
                         tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
 
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
-                        tag_feriado = " (Feriado)" if es_feriado else ""
+                        lbl_feriado = " <span style='color:#f59e0b; font-size:9.5px; font-weight:700;'>FERIADO</span>" if es_feriado else ""
 
                         if tot_dia > 0:
-                            # Micro-indicador al pie con los bancos presentes en el día
                             bancos_dia = df_dia["Banco"].dropna().unique().tolist()
-                            indicador_bancos = " ".join([f"●{str(b)[:3]}" for b in bancos_dia[:3]])
+                            badges_bancos = "".join([
+                                f"<span style='display:inline-block; font-size:9px; padding:1px 4px; border-radius:4px; margin-right:3px; background:{BANK_THEMES.get(b, {}).get('bg', '#1e293b')}; color:{BANK_THEMES.get(b, {}).get('color', '#38bdf8')}; border:1px solid {BANK_THEMES.get(b, {}).get('border', '#334155')}; font-weight:700;'>{str(b)[:4]}</span>"
+                                for b in bancos_dia[:3]
+                            ])
 
-                            # Número arriba, importe completo al medio, bancos abajo
-                            label_btn = f"{day:02d}{tag_feriado}\n\n{fmt_ars(tot_dia)}\n{indicador_bancos}"
-                            if st.button(label_btn, key=f"btn_d_{fecha_d}", use_container_width=True):
+                            # Tarjeta Visual con jerarquía ejecutiva
+                            st.markdown(
+                                f"""
+                                <div style="background:#111827; border:1px solid #1e293b; border-top:2px solid #38bdf8; border-radius:8px; padding:6px 8px; min-height:86px; display:flex; flex-direction:column; justify-content:space-between; margin-bottom:4px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">{day:02d}</span>{lbl_feriado}
+                                    </div>
+                                    <div style="font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:800; color:#38bdf8; margin:4px 0;">
+                                        {fmt_ars(tot_dia)}
+                                    </div>
+                                    <div style="overflow:hidden; white-space:nowrap;">{badges_bancos}</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                            # Botón de ancho completo para disparar el modal con el detalle
+                            if st.button("Ver detalle", key=f"btn_d_{fecha_d}", use_container_width=True):
                                 abrir_modal_dia(fecha_d, df_dia)
                         else:
-                            # Días limpios sin vencimientos: solo el número tenue, sin guiones invasivos
-                            st.button(f"{day:02d}{tag_feriado}\n\n\n", key=f"btn_d_{fecha_d}", disabled=True, use_container_width=True)
+                            # Día sin vencimientos: bloque sobrio y limpio
+                            st.markdown(
+                                f"""
+                                <div style="background:#0b0f17; border:1px solid #182234; border-radius:8px; padding:6px 8px; min-height:102px; display:flex; flex-direction:column; justify-content:space-between; opacity:0.45;">
+                                    <div style="font-size:11px; font-weight:600; color:#64748b;">{day:02d}{lbl_feriado}</div>
+                                    <div style="font-size:11px; color:#475569;">—</div>
+                                    <div style="height:12px;"></div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
 
     # -----------------------------------------------------------------------
     # TAB C: Carga Masiva e Individual (Blindada contra Duplicados y Errores)
