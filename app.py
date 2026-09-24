@@ -36,7 +36,10 @@ try:
 except ImportError:
     HAS_GSHEETS = False
 
+import importlib
 import core
+
+importlib.reload(core)
 
 # ---------------------------------------------------------------------------
 # Configuración general y estilos
