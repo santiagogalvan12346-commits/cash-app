@@ -4,7 +4,7 @@ Suite Financiera — For Drink SA
 ====================================================================
 Módulos:
 1. 💵 Gestión de Tesorería (Planes de Pago y Escaleras ARS)
-2. 🏦 Clearing / Cheques Emitidos (Cámaras, Calendario y Semáforo)
+2. 🏦 Clearing / Cheques Emitidos (Cámaras, Calendario Interactivo y Anulaciones)
 3. 🔍 Analizador de Libradores · BCRA (Scoring Nativo)
 """
 
@@ -41,7 +41,7 @@ import core
 importlib.reload(core)
 
 # ---------------------------------------------------------------------------
-# Configuración general y estilos
+# Configuración general y Estética Executive Fintech Minimalist
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
@@ -54,104 +54,154 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    [data-testid="stMetricValue"] {
-        font-size: 1.4rem !important;
-        white-space: nowrap !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-    }
-    [data-testid="stMetricLabel"] {
-        font-size: 0.85rem !important;
-        font-weight: 600 !important;
-        color: #94a3b8;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+    html, body, [class*="css"], .stMarkdown {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    /* Estilos Dark Corporativos para BCRA y Clearing */
+    /* Fondo principal Deep Slate Fintech */
+    .stApp {
+        background-color: #0b0f17 !important;
+    }
+
+    /* Tipografía técnica tabular para números y dinero */
+    [data-testid="stMetricValue"], .cal-day-total, .bcra-val-dark {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-feature-settings: "tnum" on, "zero" on !important;
+        letter-spacing: -0.02em !important;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.45rem !important;
+        font-weight: 700 !important;
+        color: #f8fafc !important;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8 !important;
+    }
+
+    /* Títulos sobrios y ejecutivos */
+    h1 {
+        font-size: 1.65rem !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.025em !important;
+        color: #f8fafc !important;
+        margin-bottom: 0.15rem !important;
+    }
+    h2, h3 {
+        font-size: 1.25rem !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.015em !important;
+        color: #e2e8f0 !important;
+    }
+
+    /* Botones Minimalist Ghost / Slate */
+    div.stButton > button:first-child {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease-in-out !important;
+    }
+    div.stButton > button:first-child:hover {
+        background: #2563eb !important;
+        border-color: #3b82f6 !important;
+        color: #ffffff !important;
+    }
+    div.stDownloadButton > button:first-child {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+    }
+    div.stDownloadButton > button:first-child:hover {
+        background: #0284c7 !important;
+        border-color: #38bdf8 !important;
+        color: #ffffff !important;
+    }
+
+    /* Tarjetas del Calendario Minimalista */
+    .cal-btn-day {
+        background: #111827 !important;
+        border: 1px solid #1e293b !important;
+        border-radius: 8px !important;
+        padding: 8px !important;
+        text-align: left !important;
+        min-height: 84px !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        transition: all 0.15s ease-in-out !important;
+    }
+    .cal-btn-day:hover {
+        border-color: #3b82f6 !important;
+        background: #172236 !important;
+    }
+
+    /* Badges de bancos minimalistas */
+    .bank-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        margin-right: 6px;
+        margin-bottom: 6px;
+    }
+    .bank-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    /* Tarjetas BCRA Dark */
     .bcra-card-dark {
-        background: #18202a;
-        border: 1px solid #2d3748;
-        border-radius: 12px;
-        padding: 16px 20px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 14px 18px;
     }
     .bcra-label-dark {
         font-size: 11px;
         text-transform: uppercase;
-        font-weight: 700;
+        font-weight: 600;
         letter-spacing: 0.05em;
         color: #94a3b8;
     }
     .bcra-val-dark {
-        font-size: 28px;
-        font-weight: 800;
-        margin-top: 4px;
+        font-size: 26px;
+        font-weight: 700;
+        margin-top: 3px;
         line-height: 1.1;
     }
     .bcra-table-box {
-        background: #18202a;
-        border: 1px solid #2d3748;
-        border-radius: 12px;
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
         padding: 6px 12px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
     .bcra-drawer-box {
-        background: #18202a;
-        border: 1px solid #2d3748;
-        border-radius: 12px;
-        padding: 18px 20px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 16px 18px;
     }
     .kpi-mini-box {
-        background: #1e2634;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 10px 12px;
-    }
-    .cal-day-box {
-        background: #18202a;
-        border: 1px solid #2d3748;
-        border-radius: 8px;
-        padding: 8px 10px;
-        min-height: 96px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-    .cal-day-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 12px;
-        font-weight: 700;
-        color: #94a3b8;
-    }
-    .cal-day-total {
-        font-size: 13px;
-        font-weight: 800;
-        color: #38bdf8;
-        margin-top: 4px;
-    }
-    .cal-details-summary {
-        font-size: 10px;
-        color: #94a3b8;
-        cursor: pointer;
-        outline: none;
-        user-select: none;
-        margin-top: 4px;
-    }
-    .cal-details-summary:hover {
-        color: #38bdf8;
-    }
-    .banco-chip {
-        display: inline-block;
-        padding: 4px 10px;
-        background: #1e293b;
-        border: 1px solid #334155;
+        background: #182234;
+        border: 1px solid #23324d;
         border-radius: 6px;
-        font-size: 11px;
-        color: #e2e8f0;
-        margin-right: 6px;
-        margin-bottom: 6px;
+        padding: 8px 10px;
     }
     </style>
     """,
@@ -289,19 +339,31 @@ def fmt_ars(value: float) -> str:
         return "$ 0"
 
 
+# Paleta e isotipos de entidades bancarias
+BANK_THEMES = {
+    "GALICIA": {"color": "#ff7a00", "bg": "rgba(255, 122, 0, 0.12)", "border": "rgba(255, 122, 0, 0.35)", "label": "Galicia"},
+    "MACRO": {"color": "#0284c7", "bg": "rgba(2, 132, 199, 0.12)", "border": "rgba(2, 132, 199, 0.35)", "label": "Macro"},
+    "SANTANDER": {"color": "#ef4444", "bg": "rgba(239, 68, 68, 0.12)", "border": "rgba(239, 68, 68, 0.35)", "label": "Santander"},
+    "BBVA": {"color": "#3b82f6", "bg": "rgba(59, 130, 246, 0.12)", "border": "rgba(59, 130, 246, 0.35)", "label": "BBVA"},
+    "BNA": {"color": "#38bdf8", "bg": "rgba(56, 189, 248, 0.12)", "border": "rgba(56, 189, 248, 0.35)", "label": "BNA Nación"},
+    "SUPERVIELLE": {"color": "#e11d48", "bg": "rgba(225, 29, 72, 0.12)", "border": "rgba(225, 29, 72, 0.35)", "label": "Supervielle"},
+    "PROVINCIA": {"color": "#10b981", "bg": "rgba(16, 185, 129, 0.12)", "border": "rgba(16, 185, 129, 0.35)", "label": "BAPRO"},
+}
+
+
 # ---------------------------------------------------------------------------
 # Barra lateral: Finanzas (For Drink SA)
 # ---------------------------------------------------------------------------
 
 st.sidebar.title("💼 Finanzas")
-st.sidebar.caption("For Drink SA - Centro Operativo")
+st.sidebar.caption("For Drink SA — Control Financiero")
 
 if conn is not None:
     st.sidebar.markdown(
         """
-        <div style="display:flex; align-items:center; gap:6px; color:#2e7d32; font-size:0.85rem; font-weight:500; margin-bottom:12px;">
-            <span style="height:8px; width:8px; background-color:#2e7d32; border-radius:50%; display:inline-block;"></span>
-            Base central conectada
+        <div style="display:flex; align-items:center; gap:6px; color:#10b981; font-size:0.8rem; font-weight:600; margin-bottom:12px;">
+            <span style="height:7px; width:7px; background-color:#10b981; border-radius:50%; display:inline-block;"></span>
+            Google Sheets Conectado
         </div>
         """,
         unsafe_allow_html=True,
@@ -309,7 +371,7 @@ if conn is not None:
 
 if st.session_state.is_admin:
     modulo_activo = st.sidebar.radio(
-        "Herramienta Activa",
+        "Módulo Activo",
         [
             "💵 Gestión de Tesorería",
             "🏦 Clearing / Cheques Emitidos",
@@ -323,7 +385,7 @@ else:
 st.sidebar.divider()
 
 if not st.session_state.is_admin:
-    with st.sidebar.expander("🔒 Modo Operador / Admin", expanded=False):
+    with st.sidebar.expander("🔒 Acceso Admin", expanded=False):
         admin_pass = st.text_input("Clave de edición", type="password", key="pass_admin_input")
         if st.button("Habilitar"):
             if admin_pass == "fordrink2026":
@@ -332,7 +394,7 @@ if not st.session_state.is_admin:
             else:
                 st.error("Clave incorrecta")
 else:
-    st.sidebar.markdown("<small style='color:#38bdf8; font-weight:600;'>🔑 Perfil: Administrador</small>", unsafe_allow_html=True)
+    st.sidebar.markdown("<small style='color:#38bdf8; font-weight:600;'>🔑 Administrador Habilitado</small>", unsafe_allow_html=True)
     if st.sidebar.button("Cerrar sesión Admin"):
         st.session_state.is_admin = False
         st.rerun()
@@ -411,7 +473,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
     df_filtered = apply_filters(df_all)
 
     st.title("Gestión de Tesorería — Planes de Pago")
-    st.caption(f"For Drink SA · Sede activa: **{sede_global}** · Flujo de caja en tiempo real.")
+    st.caption(f"For Drink SA · Sede: **{sede_global}** · Control de caja proyectado.")
 
     if st.session_state.is_admin:
         tab_kpi, tab_matriz, tab_escaleras, tab_conciliar, tab_asistente, tab_abm, tab_export = st.tabs([
@@ -449,7 +511,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     labels={"mes": "Mes", "importe_ars": "Importe ARS"},
                     color_discrete_sequence=["#38bdf8"],
                 )
-                fig.update_layout(yaxis_title="Importe ARS", xaxis_title="", margin=dict(t=10, b=10), height=340)
+                fig.update_layout(yaxis_title="Importe ARS", xaxis_title="", margin=dict(t=10, b=10), height=340, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("Sin datos para graficar.")
@@ -457,18 +519,17 @@ if modulo_activo == "💵 Gestión de Tesorería":
             if sede_global == core.SEDE_CONSOLIDADO and not df_filtered.empty:
                 st.subheader("Distribución por Sede")
                 por_sede = df_filtered.groupby("tesoreria")["importe_ars"].sum().reset_index()
-                fig_sede = px.pie(por_sede, names="tesoreria", values="importe_ars", hole=0.45,
+                fig_sede = px.pie(por_sede, names="tesoreria", values="importe_ars", hole=0.5,
                                   color_discrete_sequence=["#0284c7", "#38bdf8"])
-                fig_sede.update_layout(margin=dict(t=10, b=10), height=280)
+                fig_sede.update_layout(margin=dict(t=10, b=10), height=280, paper_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig_sede, use_container_width=True)
 
         with right:
-            st.subheader("🚦 Carga Semanal y Semáforos de Pago")
-            st.caption(f"Semáforo rojo (> {fmt_ars(umbral_tension)}) según sede activa ({sede_global}).")
+            st.subheader("🚦 Carga Semanal Proyectada")
+            st.caption(f"Semáforo rojo (> {fmt_ars(umbral_tension)}) según sede ({sede_global}).")
 
             hoy_ts = pd.Timestamp(dt.date.today())
             lunes_actual = hoy_ts - pd.Timedelta(days=hoy_ts.weekday())
-
             df_futuro = df_filtered[df_filtered["lunes_semana"] >= lunes_actual].copy()
 
             if df_futuro.empty:
@@ -481,13 +542,11 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     .sort_values("lunes_semana")
                 )
                 promedio_futuro = sem_futuras["importe_ars"].mean()
-
-                st.markdown(f"**Promedio semanal proyectado:** `{fmt_ars(promedio_futuro)}` ({len(sem_futuras)} semanas)")
+                st.markdown(f"**Promedio semanal:** `{fmt_ars(promedio_futuro)}` ({len(sem_futuras)} semanas)")
 
                 for _, r_sem in sem_futuras.iterrows():
                     monto_s = r_sem["importe_ars"]
                     sem_label = r_sem["semana_etiqueta"]
-
                     if monto_s > umbral_tension or monto_s > (promedio_futuro * 1.3):
                         st.error(f"**{sem_label}** — {fmt_ars(monto_s)} *(Tensión Alta)*", icon="🔴")
                     elif monto_s >= (promedio_futuro * 0.8):
@@ -501,17 +560,16 @@ if modulo_activo == "💵 Gestión de Tesorería":
         if not ctrl.empty:
             fig2 = go.Figure()
             fig2.add_trace(go.Bar(y=ctrl["proveedor"], x=ctrl["compromiso_total_ars"], orientation="h",
-                                   name="Comprometido", marker_color="#475569"))
+                                   name="Comprometido", marker_color="#334155"))
             fig2.add_trace(go.Bar(y=ctrl["proveedor"], x=ctrl["pagado_ars"], orientation="h",
                                    name="Pagado", marker_color="#38bdf8"))
             fig2.update_layout(barmode="overlay", xaxis_title="Importe ARS", height=max(320, 26 * len(ctrl)),
-                                margin=dict(t=10, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02))
+                                margin=dict(t=10, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig2, use_container_width=True)
 
     with tab_matriz:
-        st.subheader("Matriz Semanal de Flujo de Efectivo (Consolidada)")
-        st.caption("Visión consolidada por proveedor y semana. Reportes listos para imprimir o auditar.")
-
+        st.subheader("Matriz Semanal de Flujo de Efectivo")
         if df_filtered.empty:
             st.info("Sin datos para mostrar con los filtros aplicados.")
         else:
@@ -523,7 +581,6 @@ if modulo_activo == "💵 Gestión de Tesorería":
             )
 
             opciones_semanas = semanas_ordenadas["semana_etiqueta"].tolist()
-
             hoy_ts = pd.Timestamp(dt.date.today())
             lunes_actual = hoy_ts - pd.Timedelta(days=hoy_ts.weekday())
 
@@ -535,7 +592,6 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     idx_default = opciones_semanas.index(primera_sem_label)
 
             col_filtro_sem, col_btn_excel, col_btn_pdf = st.columns([2, 1.2, 1.2])
-
             with col_filtro_sem:
                 semana_inicio_sel = st.selectbox(
                     "📅 Mostrar semanas desde:",
@@ -560,7 +616,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     ws.title = "Matriz Semanal"
                     ws["A1"] = f"MATRIZ SEMANAL DE FLUJO DE EFECTIVO — {sede_global.upper()}"
                     ws["A1"].font = Font(size=13, bold=True, color="1F4E78")
-                    ws["A2"] = f"Período: Desde semana {semana_inicio_sel} · Generado el: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                    ws["A2"] = f"Período: Desde {semana_inicio_sel} · Generado el: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}"
                     ws["A2"].font = Font(size=9, italic=True, color="666666")
 
                     headers = list(matrix_df.columns)
@@ -616,8 +672,8 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     title_style = ParagraphStyle('MatTitle', parent=styles['Heading1'], fontSize=13, textColor=colors.HexColor('#1F4E78'), spaceAfter=3)
                     sub_style = ParagraphStyle('MatSub', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'), spaceAfter=10)
 
-                    story.append(Paragraph(f"<b>FOR DRINK SA — MATRIZ SEMANAL DE FLUJO DE EFECTIVO ({sede_global.upper()})</b>", title_style))
-                    story.append(Paragraph(f"Período: Desde semana {semana_inicio_sel} | Fecha de emisión: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
+                    story.append(Paragraph(f"<b>FOR DRINK SA — MATRIZ SEMANAL ({sede_global.upper()})</b>", title_style))
+                    story.append(Paragraph(f"Desde {semana_inicio_sel} | Emitido: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
 
                     headers = list(matrix_df.columns)
                     table_data = [headers]
@@ -650,27 +706,22 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 with col_btn_excel:
                     st.write("")
                     st.write("")
-                    excel_matriz = export_matrix_to_excel(matrix)
                     st.download_button(
-                        label="📥 Descargar Reporte en Excel",
-                        data=excel_matriz,
+                        label="📥 Descargar Excel",
+                        data=export_matrix_to_excel(matrix),
                         file_name=f"Matriz_Semanal_{sede_global}_{dt.date.today().strftime('%Y%m%d')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        type="primary",
-                        key="dl_matriz_excel",
                         use_container_width=True,
                     )
 
                 with col_btn_pdf:
                     st.write("")
                     st.write("")
-                    pdf_matriz = export_matrix_to_pdf(matrix)
                     st.download_button(
-                        label="📄 Descargar Reporte en PDF",
-                        data=pdf_matriz,
+                        label="📄 Descargar PDF",
+                        data=export_matrix_to_pdf(matrix),
                         file_name=f"Matriz_Semanal_{sede_global}_{dt.date.today().strftime('%Y%m%d')}.pdf",
                         mime="application/pdf",
-                        key="dl_matriz_pdf",
                         use_container_width=True,
                     )
 
@@ -679,11 +730,11 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 def highlight_peaks(row):
                     styles = [""] * len(row)
                     if row["Semana"] == "TOTAL POR PROVEEDOR":
-                        return ["font-weight: bold; background-color: #334155"] * len(row)
+                        return ["font-weight: 700; background-color: #1e293b; color: #38bdf8;"] * len(row)
                     try:
                         if row["TOTAL SEMANAL"] > umbral_tension:
                             idx = list(row.index).index("TOTAL SEMANAL")
-                            styles[idx] = "background-color:#7f1d1d; font-weight:bold; color:#fecaca;"
+                            styles[idx] = "background-color: #7f1d1d; font-weight: 700; color: #fecaca;"
                     except Exception:
                         pass
                     return styles
@@ -692,9 +743,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
     with tab_escaleras:
-        st.subheader("🪜 Control Individual de Escaleras y Presupuestos")
-        st.caption("Inspeccioná cada contrato y cuota de forma vertical con descarga en Excel y PDF para legajos.")
-
+        st.subheader("🪜 Control Individual de Escaleras")
         prov_list = sorted(df_filtered["proveedor"].dropna().unique().tolist())
         if not prov_list:
             st.info("No hay proveedores para los filtros seleccionados.")
@@ -715,10 +764,10 @@ if modulo_activo == "💵 Gestión de Tesorería":
             with col_sel_op:
                 if len(operaciones_encontradas) > 1:
                     opciones_operacion = ["Todas las Operaciones (Consolidado)"] + operaciones_encontradas
-                    op_sel = st.selectbox(f"📌 Operación / Escalera ({len(operaciones_encontradas)} registradas)", opciones_operacion, key="op_inspect")
+                    op_sel = st.selectbox(f"📌 Operación ({len(operaciones_encontradas)} registradas)", opciones_operacion, key="op_inspect")
                 else:
                     op_sel = "Todas las Operaciones (Consolidado)"
-                    st.selectbox("📌 Operación / Escalera", ["Operación Única"], disabled=True, key="op_inspect_single")
+                    st.selectbox("📌 Operación", ["Operación Única"], disabled=True, key="op_inspect_single")
 
             df_p = df_p_raw[df_p_raw["operacion_identificada"] == op_sel].copy() if op_sel != "Todas las Operaciones (Consolidado)" else df_p_raw.copy()
             subtitulo_op = f" — {op_sel}" if op_sel != "Todas las Operaciones (Consolidado)" else ""
@@ -736,12 +785,12 @@ if modulo_activo == "💵 Gestión de Tesorería":
             st.divider()
 
             todas_obs = [str(o).strip() for o in df_p["obs"].dropna().unique() if str(o).strip() and str(o).strip().lower() != "nan"]
-            with st.expander("🔍 Ver detalle de observaciones del acuerdo"):
+            with st.expander("🔍 Observaciones del acuerdo"):
                 if todas_obs:
                     for idx_o, obs_t in enumerate(todas_obs, 1):
                         st.markdown(f"**Nota {idx_o}:** {obs_t}")
                 else:
-                    st.caption("No hay notas u observaciones adicionales registradas para este plan.")
+                    st.caption("Sin notas adicionales registradas.")
 
             def merge_concepto_obs(r):
                 c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) and str(r["concepto"]).strip().lower() != "nan" else ""
@@ -764,9 +813,8 @@ if modulo_activo == "💵 Gestión de Tesorería":
             def export_provider_to_excel(df_table: pd.DataFrame, prov_name: str, op_name: str) -> bytes:
                 wb = Workbook()
                 ws = wb.active
-                ws.title = "Escalera de Pagos"
-                titulo_excel = f"ESCALERA DE PAGOS — {prov_name.upper()}" + (f" ({op_name.upper()})" if op_name != "Todas las Operaciones (Consolidado)" else "")
-                ws["A1"] = titulo_excel
+                ws.title = "Escalera"
+                ws["A1"] = f"ESCALERA DE PAGOS — {prov_name.upper()}" + (f" ({op_name.upper()})" if op_name != "Todas las Operaciones (Consolidado)" else "")
                 ws["A1"].font = Font(size=13, bold=True, color="1F4E78")
                 ws["A2"] = f"Generado el: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}"
                 ws["A2"].font = Font(size=9, italic=True, color="666666")
@@ -797,7 +845,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                             cell.value = str(val) if pd.notna(val) else ""
 
                 tot_row = h_row + 1 + len(df_table)
-                ws.cell(row=tot_row, column=1, value="TOTAL GENERAL").font = Font(bold=True)
+                ws.cell(row=tot_row, column=1, value="TOTAL").font = Font(bold=True)
                 ws.cell(row=tot_row, column=1).alignment = Alignment(horizontal="center")
                 cell_tot = ws.cell(row=tot_row, column=2, value=total_suma)
                 cell_tot.font = Font(bold=True)
@@ -814,81 +862,10 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 wb.save(buf)
                 return buf.getvalue()
 
-            def export_provider_to_pdf(df_table: pd.DataFrame, prov_name: str, op_name: str, kpis_info) -> bytes:
-                buf = BytesIO()
-                doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
-                styles = getSampleStyleSheet()
-                story = []
-
-                title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=13, textColor=colors.HexColor('#1F4E78'), spaceAfter=4)
-                sub_style = ParagraphStyle('DocSub', parent=styles['Normal'], fontSize=8.5, textColor=colors.HexColor('#444444'), spaceAfter=10)
-                kpi_style = ParagraphStyle('DocKpi', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#1F4E78'), spaceAfter=14)
-
-                titulo_txt = f"FOR DRINK SA — PLAN DE PAGO: {prov_name.upper()}" + (f" - {op_name.upper()}" if op_name != "Todas las Operaciones (Consolidado)" else "")
-                story.append(Paragraph(f"<b>{titulo_txt}</b>", title_style))
-                story.append(Paragraph(f"Fecha de Emisión: <b>{dt.datetime.now().strftime('%d/%m/%Y %H:%M')}</b> | Sede: <b>{sede_global}</b>", sub_style))
-
-                resumen_txt = f"<b>Compromiso Total:</b> {fmt_ars(kpis_info.total_comprometido)} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Pagado:</b> {fmt_ars(kpis_info.total_pagado)} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Saldo Pendiente:</b> {fmt_ars(kpis_info.saldo_pendiente)}"
-                story.append(Paragraph(resumen_txt, kpi_style))
-
-                pdf_data = [["Fecha Vto.", "Detalle / Concepto", "Importe ARS", "Estado"]]
-                total_cuotas_ars = 0.0
-                for _, r in df_table.iterrows():
-                    f_str = r["Fecha Vto."].strftime("%d/%m/%Y") if hasattr(r["Fecha Vto."], "strftime") else str(r["Fecha Vto."])
-                    c_str = str(r["Detalle / Observaciones"])[:45]
-                    m_val = float(r["Importe ARS"]) if pd.notna(r["Importe ARS"]) else 0.0
-                    total_cuotas_ars += m_val
-                    pdf_data.append([f_str, c_str, fmt_ars(m_val), str(r["Estado"])])
-
-                pdf_data.append(["TOTAL ACORDADO", "", fmt_ars(total_cuotas_ars), ""])
-
-                num_rows = len(pdf_data)
-                t = Table(pdf_data, colWidths=[80, 240, 115, 85])
-                t.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 9),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('ALIGN', (1, 1), (1, -2), 'LEFT'),
-                    ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
-                    ('FONTSIZE', (0, 1), (-1, -1), 8.5),
-                    ('TOPPADDING', (0, 0), (-1, -1), 4.5),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4.5),
-                    ('BACKGROUND', (0, num_rows - 1), (-1, num_rows - 1), colors.HexColor('#E2E8F0')),
-                    ('FONTNAME', (0, num_rows - 1), (-1, num_rows - 1), 'Helvetica-Bold'),
-                    ('TEXTCOLOR', (0, num_rows - 1), (-1, num_rows - 1), colors.HexColor('#0F172A')),
-                ]))
-                story.append(t)
-                story.append(Spacer(1, 35))
-
-                firmas_data = [
-                    ["___________________________________", "___________________________________"],
-                    ["Firma y Aclaración Tesorería", "Conformidad Contratista / Proveedor"],
-                    ["For Drink SA", f"{prov_name}"],
-                ]
-                t_firmas = Table(firmas_data, colWidths=[260, 260])
-                t_firmas.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 8),
-                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#555555')),
-                    ('TOPPADDING', (0, 0), (-1, -1), 2),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-                ]))
-                story.append(t_firmas)
-                doc.build(story)
-                return buf.getvalue()
-
             table_view = format_ladder_table(df_p)
-            excel_bytes = export_provider_to_excel(table_view, p_sel, op_sel)
-            pdf_bytes = export_provider_to_pdf(table_view, p_sel, op_sel, kpis_p)
-
-            c_down_xl, c_down_pdf, _ = st.columns([1.3, 1.3, 2])
+            c_down_xl, _ = st.columns([1.5, 3])
             with c_down_xl:
-                st.download_button("📥 Descargar Reporte en Excel", excel_bytes, f"Escalera_{p_sel.replace(' ', '_')}_{dt.date.today().strftime('%Y%m%d')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key=f"dl_xl_{p_sel}_{op_sel}", type="primary", use_container_width=True)
-            with c_down_pdf:
-                st.download_button("📄 Descargar Reporte en PDF", pdf_bytes, f"Legajo_Escalera_{p_sel.replace(' ', '_')}_{dt.date.today().strftime('%Y%m%d')}.pdf", "application/pdf", key=f"dl_pdf_{p_sel}_{op_sel}", use_container_width=True)
+                st.download_button("📥 Descargar Excel del Proveedor", export_provider_to_excel(table_view, p_sel, op_sel), f"Escalera_{p_sel.replace(' ', '_')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key=f"dl_xl_{p_sel}", use_container_width=True)
 
             st.dataframe(
                 table_view.style.format({
@@ -901,138 +878,66 @@ if modulo_activo == "💵 Gestión de Tesorería":
 
     if st.session_state.is_admin:
         with tab_conciliar:
-            st.subheader("⚡ Conciliación Rápida de Pagos")
-            st.caption("Cambiá el estado de los desembolsos a 'Pagado' en un solo clic y sincronizalo con Google Drive.")
+            st.subheader("⚡ Conciliación Rápida")
             df_prog = df_filtered[df_filtered["estado"] != "Pagado"].sort_values("fecha").copy()
             if df_prog.empty:
-                st.success("🎉 ¡Excelente! No hay pagos pendientes en este rango.")
+                st.success("🎉 No hay pagos pendientes en este rango.")
             else:
-                st.write(f"Se encontraron **{len(df_prog)} pagos pendientes** con los filtros activos.")
+                st.write(f"Hay **{len(df_prog)} pagos pendientes**.")
                 df_editor = df_prog[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado", "obs"]].copy()
-                df_editor.insert(0, "Conciliar (Marcar Pagado)", False)
+                df_editor.insert(0, "Conciliar", False)
                 df_editor["fecha"] = df_editor["fecha"].dt.date
 
                 edited = st.data_editor(
                     df_editor,
                     column_config={
-                        "Conciliar (Marcar Pagado)": st.column_config.CheckboxColumn("¿Pagar?", default=False),
+                        "Conciliar": st.column_config.CheckboxColumn("¿Pagar?", default=False),
                         "importe_ars": st.column_config.NumberColumn("Importe ARS", format="$ %d"),
-                        "fecha": st.column_config.DateColumn("Fecha Vencimiento", format="DD/MM/YYYY"),
+                        "fecha": st.column_config.DateColumn("Fecha Vto.", format="DD/MM/YYYY"),
                     },
                     disabled=["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado", "obs"],
                     use_container_width=True,
                     hide_index=True,
-                    height=380,
+                    height=360,
                     key="conciliar_editor",
                 )
 
-                pagos_a_conciliar = edited[edited["Conciliar (Marcar Pagado)"] == True]["id"].tolist()
-                c_btn, c_resumen = st.columns([1, 2])
-                with c_btn:
-                    if st.button("💾 Marcar Seleccionados como PAGADO", type="primary", disabled=len(pagos_a_conciliar) == 0):
-                        df_current = get_df()
-                        df_updated = core.update_payments_status(df_current, pagos_a_conciliar, new_status="Pagado")
-                        set_df(df_updated, sync_cloud=True)
-                        st.success(f"¡Se actualizaron {len(pagos_a_conciliar)} pagos a estado PAGADO en la nube!")
-                        st.rerun()
-
-                with c_resumen:
-                    if pagos_a_conciliar:
-                        suma_sel = edited[edited["Conciliar (Marcar Pagado)"] == True]["importe_ars"].sum()
-                        st.info(f"Seleccionados **{len(pagos_a_conciliar)} pagos** por un total de **{fmt_ars(suma_sel)}**.")
+                pagos_a_conciliar = edited[edited["Conciliar"] == True]["id"].tolist()
+                if st.button("💾 Marcar Seleccionados como PAGADO", disabled=len(pagos_a_conciliar) == 0):
+                    df_current = get_df()
+                    df_updated = core.update_payments_status(df_current, pagos_a_conciliar, new_status="Pagado")
+                    set_df(df_updated, sync_cloud=True)
+                    st.success(f"Se actualizaron {len(pagos_a_conciliar)} pagos a estado PAGADO.")
+                    st.rerun()
 
         with tab_asistente:
             st.subheader("➕ Cargar Nueva Escalera de Pago")
-            st.caption("Completá los datos del acuerdo e ingresá los tramos manualmente o pegándolos desde Excel.")
-
-            if "escalera_guardada_msj" in st.session_state:
-                st.success(st.session_state.escalera_guardada_msj, icon="✅")
-                st.toast(st.session_state.escalera_guardada_msj, icon="🚀")
-                del st.session_state["escalera_guardada_msj"]
-
             c_cab1, c_cab2 = st.columns(2)
             with c_cab1:
-                esc_tesoreria = st.selectbox("Tesorería / Sede", core.TESORERIAS_VALIDAS, index=0 if sede_global == "Tucumán" else 1, key="esc_sede")
+                esc_tesoreria = st.selectbox("Tesorería", core.TESORERIAS_VALIDAS, index=0 if sede_global == "Tucumán" else 1, key="esc_sede")
                 tipo_prov = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True, key="esc_tipo_prov")
                 prov_opts = sorted(get_df()["proveedor"].dropna().unique().tolist())
-                esc_proveedor = st.selectbox("Seleccionar de la lista", prov_opts, key="esc_prov_sel") if tipo_prov == "Existente" and prov_opts else st.text_input("Escribir nombre del nuevo proveedor", key="esc_prov_new").strip().upper()
+                esc_proveedor = st.selectbox("Seleccionar", prov_opts, key="esc_prov_sel") if tipo_prov == "Existente" and prov_opts else st.text_input("Nombre", key="esc_prov_new").strip().upper()
 
             with c_cab2:
                 esc_proyecto = st.text_input("Proyecto / Obra", value="L2 TUC" if esc_tesoreria == "Tucumán" else "L2 BA", key="esc_proy")
-                esc_concepto = st.text_input("Presupuesto / Identificador de Operación", placeholder="Ej: Carpintería Aluminio - Presupuesto N° 450", key="esc_conc")
+                esc_concepto = st.text_input("Presupuesto / Concepto", placeholder="Ej: Carpintería - Presupuesto N° 450", key="esc_conc")
 
             st.markdown("---")
-            st.markdown("##### Cronograma de Pagos")
+            col_nc, _ = st.columns([1, 3])
+            with col_nc:
+                cant_cuotas = st.number_input("Cantidad de cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
 
-            modo_carga_esc = st.radio(
-                "Modalidad de ingreso de cuotas:",
-                ["📋 Pegar desde Excel (Rápido)", "✍️ Generar grilla manual"],
-                horizontal=True,
-                key="modo_carga_esc",
-            )
-
-            def parse_excel_ladder(text: str) -> list[dict]:
-                lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
-                parsed = []
-                for line in lines:
-                    parts = re.split(r"[\t;|]+", line)
-                    if len(parts) < 2:
-                        parts = re.split(r"\s{2,}", line)
-                    if len(parts) >= 2:
-                        f_raw = parts[0].strip()
-                        m_raw = parts[1].strip()
-                        m_clean = m_raw.replace("$", "").replace(" ", "").replace(".", "").replace(",", ".")
-                        try:
-                            m_val = float(m_clean)
-                            f_val = pd.to_datetime(f_raw, dayfirst=True)
-                            parsed.append({"Fecha Vto.": f_val.date(), "Importe ARS": m_val})
-                        except Exception:
-                            continue
-                return parsed
-
-            if modo_carga_esc == "📋 Pegar desde Excel (Rápido)":
-                st.caption("Copiá en Excel las 2 columnas (`Fecha` e `Importe`) y pegalas en este cuadro:")
-                txt_excel_pago = st.text_area(
-                    "Pegar celdas copiadas de Excel",
-                    placeholder="25/09/2026\t700000\n02/10/2026\t700000\n09/10/2026\t700000",
-                    height=110,
-                    label_visibility="collapsed",
-                    key="txt_excel_pago_input",
-                )
-                if st.button("📥 Procesar Celdas Pegadas", key="btn_proc_excel"):
-                    if txt_excel_pago.strip():
-                        res_p = parse_excel_ladder(txt_excel_pago)
-                        if res_p:
-                            st.session_state.grid_ladder_data = pd.DataFrame([
-                                {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": r["Fecha Vto."], "Importe ARS": r["Importe ARS"]}
-                                for i, r in enumerate(res_p)
-                            ])
-                            st.success(f"¡Se cargaron {len(res_p)} tramos desde el portapapeles!")
-                        else:
-                            st.error("No se pudieron interpretar las filas. Asegurate de copiar dos columnas: Fecha e Importe.")
-            else:
-                col_nc, _ = st.columns([1, 3])
-                with col_nc:
-                    cant_cuotas = st.number_input("Cantidad de tramos / cuotas", min_value=1, max_value=50, value=4, step=1, key="esc_n_cuotas")
-
-                if ("grid_ladder_data" not in st.session_state 
-                    or len(st.session_state.grid_ladder_data) != cant_cuotas 
-                    or st.session_state.get("reset_grid_flag", False)):
-                    base_f = dt.date.today()
-                    st.session_state.grid_ladder_data = pd.DataFrame([
-                        {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": base_f + dt.timedelta(days=7 * i), "Importe ARS": 0.0}
-                        for i in range(int(cant_cuotas))
-                    ])
-                    st.session_state["reset_grid_flag"] = False
-
-            if "grid_ladder_data" not in st.session_state or st.session_state.grid_ladder_data.empty:
+            if ("grid_ladder_data" not in st.session_state 
+                or len(st.session_state.grid_ladder_data) != cant_cuotas 
+                or st.session_state.get("reset_grid_flag", False)):
                 base_f = dt.date.today()
                 st.session_state.grid_ladder_data = pd.DataFrame([
-                    {"Tramo": "Cuota 1", "Fecha Vto.": base_f, "Importe ARS": 0.0}
+                    {"Tramo": f"Cuota {i + 1}", "Fecha Vto.": base_f + dt.timedelta(days=7 * i), "Importe ARS": 0.0}
+                    for i in range(int(cant_cuotas))
                 ])
+                st.session_state["reset_grid_flag"] = False
 
-            st.write("")
-            st.markdown("**Revisión del Cronograma:**")
             grid_edited = st.data_editor(
                 st.session_state.grid_ladder_data,
                 column_config={
@@ -1046,36 +951,34 @@ if modulo_activo == "💵 Gestión de Tesorería":
             )
 
             total_acordado = float(grid_edited["Importe ARS"].sum())
-            cant_tramos_final = len(grid_edited)
-            st.info(f"📊 **Resumen del Acuerdo:** {cant_tramos_final} tramos · Total Acordado: **{fmt_ars(total_acordado)}**")
+            st.info(f"📊 **Resumen:** {len(grid_edited)} tramos · Total Acordado: **{fmt_ars(total_acordado)}**")
 
-            if st.button("🚀 Guardar Escalera Completa en la Base", type="primary", use_container_width=True):
+            if st.button("🚀 Guardar Escalera en Google Sheets", use_container_width=True):
                 if not esc_proveedor or not esc_concepto or total_acordado <= 0:
-                    st.error("Verificá los datos ingresados: indicá proveedor, presupuesto y cuotas mayores a cero.")
+                    st.error("Completá proveedor, presupuesto y cuotas con importe.")
                 else:
-                    with st.spinner("Guardando en Google Sheets..."):
-                        items_ladder = [{"fecha": pd.to_datetime(r["Fecha Vto."]), "importe": float(r["Importe ARS"])} for _, r in grid_edited.iterrows()]
-                        df_curr = get_df()
-                        new_rows = core.generate_custom_ladder(
-                            df_existing=df_curr,
-                            tesoreria=esc_tesoreria,
-                            proveedor=esc_proveedor,
-                            proyecto=esc_proyecto,
-                            concepto=esc_concepto,
-                            moneda="ARS",
-                            tc=1.0,
-                            items=items_ladder,
-                        )
-                        df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
-                        if save_data_source(df_total):
-                            st.session_state.df = core.normalize_df(df_total)
-                            st.session_state["reset_grid_flag"] = True
-                            st.session_state["escalera_guardada_msj"] = f"¡Escalera para {esc_proveedor} guardada con éxito ({len(new_rows)} cuotas registradas)!"
-                            time.sleep(0.5)
-                            st.rerun()
+                    items_ladder = [{"fecha": pd.to_datetime(r["Fecha Vto."]), "importe": float(r["Importe ARS"])} for _, r in grid_edited.iterrows()]
+                    df_curr = get_df()
+                    new_rows = core.generate_custom_ladder(
+                        df_existing=df_curr,
+                        tesoreria=esc_tesoreria,
+                        proveedor=esc_proveedor,
+                        proyecto=esc_proyecto,
+                        concepto=esc_concepto,
+                        moneda="ARS",
+                        tc=1.0,
+                        items=items_ladder,
+                    )
+                    df_total = pd.concat([df_curr[core.COLUMNS], new_rows[core.COLUMNS]], ignore_index=True)
+                    if save_data_source(df_total):
+                        st.session_state.df = core.normalize_df(df_total)
+                        st.session_state["reset_grid_flag"] = True
+                        st.success("¡Escalera registrada con éxito!")
+                        time.sleep(0.5)
+                        st.rerun()
 
         with tab_abm:
-            st.subheader("Registro y edición manual de pagos individuales")
+            st.subheader("Registro Manual de Pagos")
             col_form, col_table = st.columns([1, 2])
             with col_form:
                 editing_id = st.session_state.editing_id
@@ -1089,15 +992,15 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     tesoreria_sel = st.selectbox("Sede", core.TESORERIAS_VALIDAS, index=core.TESORERIAS_VALIDAS.index(record["tesoreria"]) if record is not None else 0)
                     fecha_pago = st.date_input("Fecha", value=record["fecha"].date() if record is not None and pd.notna(record["fecha"]) else dt.date.today())
                     modo_p = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True)
-                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=proveedores_existentes.index(record["proveedor"]) if record is not None else 0) if modo_p == "Existente" and proveedores_existentes else st.text_input("Nombre nuevo", value=record["proveedor"] if record is not None else "").strip().upper()
+                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=proveedores_existentes.index(record["proveedor"]) if record is not None else 0) if modo_p == "Existente" and proveedores_existentes else st.text_input("Nombre", value=record["proveedor"] if record is not None else "").strip().upper()
                     proyecto = st.text_input("Proyecto", value=record["proyecto"] if record is not None else "L2")
-                    concepto = st.text_input("Operación / Concepto", value=record["concepto"] if record is not None else "")
+                    concepto = st.text_input("Concepto", value=record["concepto"] if record is not None else "")
                     importe = st.number_input("Importe en $ ARS", min_value=0.0, value=float(record["importe"]) if record is not None else 0.0, step=50000.0)
                     estado = st.selectbox("Estado", core.ESTADOS_VALIDOS, index=core.ESTADOS_VALIDOS.index(record["estado"]) if record is not None else 0)
-                    obs = st.text_area("Notas internas", value=record["obs"] if record is not None else "")
+                    obs = st.text_area("Notas", value=record["obs"] if record is not None else "")
 
                     b1, b2 = st.columns(2)
-                    sub = b1.form_submit_button("💾 Guardar", type="primary", use_container_width=True)
+                    sub = b1.form_submit_button("💾 Guardar", use_container_width=True)
                     can = b2.form_submit_button("✖️ Cancelar", use_container_width=True)
 
                     if sub and proveedor:
@@ -1120,24 +1023,10 @@ if modulo_activo == "💵 Gestión de Tesorería":
             with col_table:
                 disp = df_filtered[["id", "tesoreria", "fecha", "proveedor", "concepto", "importe_ars", "estado"]].rename(columns={"id": "ID", "tesoreria": "Sede", "fecha": "Fecha", "proveedor": "Proveedor", "concepto": "Operación", "importe_ars": "Importe ARS", "estado": "Estado"}).sort_values("Fecha")
                 st.dataframe(disp.style.format({"Fecha": lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else "", "Importe ARS": fmt_ars}), use_container_width=True, height=360, hide_index=True)
-                ids_disp = disp["ID"].tolist()
-                if ids_disp:
-                    c_sel, c_edit, c_del = st.columns([2, 1, 1])
-                    s_id = c_sel.selectbox("Seleccionar ID", ids_disp, label_visibility="collapsed")
-                    if c_edit.button("✏️ Editar", use_container_width=True):
-                        st.session_state.editing_id = s_id
-                        st.rerun()
-                    if c_del.button("🗑️ Eliminar", use_container_width=True):
-                        df_curr = get_df()
-                        df_curr = df_curr[df_curr["id"] != s_id]
-                        set_df(df_curr, sync_cloud=True)
-                        st.rerun()
 
         with tab_export:
-            st.subheader("⬇️ Exportar Base Actualizada")
-            df_exp = get_df()
-            xlsx_data = core.export_to_excel(df_exp)
-            st.download_button("⬇️ Descargar Excel Completo", xlsx_data, f"base_pagos_efectivo_{dt.date.today().isoformat()}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
+            st.subheader("⬇️ Exportar Base Completa")
+            st.download_button("⬇️ Descargar Excel", core.export_to_excel(get_df()), f"base_pagos_{dt.date.today().isoformat()}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ===========================================================================
 # MÓDULO 2: CLEARING / CHEQUES EMITIDOS (CÁMARAS BANCARIAS)
@@ -1146,37 +1035,91 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     df_ch = get_cheques()
 
     st.title("Clearing Bancario — Cheques Emitidos")
-    st.caption("Seguimiento diario de cámaras compensadoras por banco emisor · For Drink SA")
+    st.caption("Seguimiento diario de cámaras compensadoras · For Drink SA")
 
     # KPIs superiores
     kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []))
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total en Cheques", fmt_ars(kpis_ch["total_comprometido"]))
-    c2.metric("Cheques Emitidos", f"{kpis_ch['cant_cheques']} valores")
-    c3.metric("Promedio Diario Hábil", fmt_ars(kpis_ch["promedio_diario"]), help="Calculado excluyendo sábados, domingos y feriados marcados.")
+    c1.metric("Total a Cubrir", fmt_ars(kpis_ch["total_comprometido"]))
+    c2.metric("Cheques en Circulación", f"{kpis_ch['cant_cheques']} valores")
+    c3.metric("Promedio Diario Hábil", fmt_ars(kpis_ch["promedio_diario"]), help="Excluye feriados bancarios y fines de semana.")
     c4.metric("Pico Máximo Diario", fmt_ars(kpis_ch["pico_maximo"]))
 
-    # Matriz sutil de concentración por banco
+    # Micro-Badges y Barra Continua de Concentración Bancaria
     if kpis_ch.get("bancos_distribucion"):
-        chips_html = "".join([
-            f"<div class='banco-chip'><b>{b}</b>: {pct:.1f}% <span style='color:#94a3b8;'>({fmt_ars(info['monto'])})</span></div>"
-            for b, info in kpis_ch["bancos_distribucion"].items()
-            for pct in [info["pct"]]
+        dist = kpis_ch["bancos_distribucion"]
+        
+        # Barra segmentada continua estilo Apple/macOS
+        seg_html = "".join([
+            f"<div style='flex: {info['pct']:.2f}; background-color: {BANK_THEMES.get(b, {}).get('color', '#3b82f6')}; height: 6px; border-radius: 2px;' title='{b}: {info['pct']:.1f}%'></div>"
+            for b, info in dist.items()
         ])
+        
+        # Píldoras con isotipo/color heráldico
+        pills_html = "".join([
+            f"""<div class='bank-pill' style='background:{BANK_THEMES.get(b, {}).get('bg', '#1e293b')}; border:1px solid {BANK_THEMES.get(b, {}).get('border', '#334155')}; color:#f8fafc;'>
+                <span class='bank-dot' style='background-color:{BANK_THEMES.get(b, {}).get('color', '#38bdf8')};'></span>
+                <b>{b}</b> {info['pct']:.1f}% <span style='color:#94a3b8; font-weight:400;'>({fmt_ars(info['monto'])})</span>
+            </div>"""
+            for b, info in dist.items()
+        ])
+
         st.markdown(
             f"""
-            <div style="background:#18202a; border:1px solid #2d3748; border-radius:10px; padding:10px 14px; margin-top:8px; margin-bottom:14px;">
-                <span class="bcra-label-dark" style="margin-bottom:6px; display:block;">Concentración por Banco Emisor:</span>
-                <div style="display:flex; flex-wrap:wrap; gap:4px;">{chips_html}</div>
+            <div style="background:#111827; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; margin-top:6px; margin-bottom:14px;">
+                <div style="display:flex; gap:3px; margin-bottom:10px; border-radius:3px; overflow:hidden;">
+                    {seg_html}
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
+                    {pills_html}
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    tab_sabana, tab_cal, tab_carga_ch = st.tabs([
+    # -----------------------------------------------------------------------
+    # MODAL NATIVO: Detalle de Vencimientos por Día (@st.dialog)
+    # -----------------------------------------------------------------------
+    if hasattr(st, "dialog"):
+        @st.dialog("Detalle de Vencimientos del Día")
+        def abrir_modal_dia(fecha_sel: dt.date, df_dia: pd.DataFrame):
+            dia_nom = core.DIAS_ES.get(fecha_sel.weekday(), "").capitalize()
+            st.markdown(f"### 📅 {dia_nom} {fecha_sel.strftime('%d/%m/%Y')}")
+            
+            tot_d = df_dia["Importe"].sum()
+            st.markdown(f"<div style='font-size:24px; font-weight:800; color:#38bdf8; margin-bottom:12px;'>Total a cubrir: {fmt_ars(tot_d)}</div>", unsafe_allow_html=True)
+            
+            st.markdown("##### Desglose por Banco Emisor")
+            banco_grp = df_dia.groupby("Banco")["Importe"].agg(["sum", "count"]).reset_index()
+            banco_grp["pct"] = (banco_grp["sum"] / tot_d) * 100
+
+            for _, r in banco_grp.iterrows():
+                b_nom = r["Banco"]
+                theme = BANK_THEMES.get(b_nom, {"color": "#38bdf8", "bg": "#1e293b", "border": "#334155"})
+                c_b1, c_b2, c_b3 = st.columns([2, 2, 1])
+                c_b1.markdown(f"<span class='bank-dot' style='background:{theme['color']};'></span> **{b_nom}** ({r['count']} ch.)", unsafe_allow_html=True)
+                c_b2.markdown(f"**{fmt_ars(r['sum'])}**")
+                c_b3.markdown(f"`{r['pct']:.1f}%`")
+
+            st.divider()
+            st.markdown("##### Cheques individuales involucrados")
+            cols_ver = ["Nro. de Cheque", "Banco", "Importe", "Razón Social Beneficiario"]
+            sub_tabla = df_dia[[c for c in cols_ver if c in df_dia.columns]].copy()
+            st.dataframe(
+                sub_tabla.style.format({"Importe": fmt_ars}),
+                use_container_width=True,
+                hide_index=True
+            )
+    else:
+        def abrir_modal_dia(fecha_sel, df_dia):
+            st.toast(f"Día {fecha_sel.strftime('%d/%m')}: {fmt_ars(df_dia['Importe'].sum())}")
+
+    tab_sabana, tab_cal, tab_carga_ch, tab_bajas = st.tabs([
         "🗓️ Sábana de Cámaras (Flujo Diario)",
         "📅 Calendario Visual",
         "➕ Carga de Cheques Emitidos",
+        "🚫 Anulación de Cheques (Baja Lógica)",
     ])
 
     # -----------------------------------------------------------------------
@@ -1188,7 +1131,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
         if mes_actual_default not in meses_unicos and meses_unicos:
             mes_actual_default = meses_unicos[0]
 
-        with st.expander("⚙️ Configurar Semáforo por Mes y Feriados", expanded=False):
+        with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados", expanded=False):
             col_m_sel, col_sem1, col_sem2, col_sem3 = st.columns([1.2, 1, 1, 1])
             with col_m_sel:
                 mes_conf = st.selectbox("Mes a calibrar:", meses_unicos if meses_unicos else [mes_actual_default], key="mes_conf_sem")
@@ -1202,11 +1145,11 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 u_naranja = st.number_input("🟠 Hasta (Tensión)", min_value=u_amarillo, value=defaults_mes[2], step=5_000_000.0, format="%.0f", key=f"un_{mes_conf}")
 
             st.session_state.semaforos_mes[mes_conf] = (u_verde, u_amarillo, u_naranja)
-            st.caption(f"Configuración guardada para **{mes_conf}**. 🔴 Por encima de {fmt_ars(u_naranja)} se destaca como Tensión Crítica.")
+            st.caption(f"Semáforo guardado para **{mes_conf}**. 🔴 Por encima de {fmt_ars(u_naranja)} se destaca como Tensión Crítica.")
 
             st.markdown("---")
             feriados_cargados = st.session_state.get("feriados", [])
-            f_feriado_nuevo = st.date_input("Marcar fecha como feriado bancario:", value=None, key="f_feriado_input")
+            f_feriado_nuevo = st.date_input("Agregar feriado bancario:", value=None, key="f_feriado_input")
             col_b_f1, col_b_f2 = st.columns([1, 3])
             if col_b_f1.button("Agregar feriado") and f_feriado_nuevo:
                 if f_feriado_nuevo not in feriados_cargados:
@@ -1214,7 +1157,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     st.session_state.feriados = sorted(feriados_cargados)
                     st.rerun()
             if feriados_cargados:
-                col_b_f2.write(f"Feriados marcados: {', '.join([d.strftime('%d/%m/%Y') for d in feriados_cargados])}")
+                col_b_f2.write(f"Feriados: {', '.join([d.strftime('%d/%m/%Y') for d in feriados_cargados])}")
                 if st.button("Limpiar todos los feriados", key="btn_clear_feriados"):
                     st.session_state.feriados = []
                     st.rerun()
@@ -1237,7 +1180,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 styles = [""] * len(row)
 
                 if is_sub:
-                    sub_style = "background-color: #243042; font-weight: 800; color: #38bdf8; border-top: 1px solid #475569; border-bottom: 2px solid #64748b;"
+                    sub_style = "background-color: #1e293b; font-weight: 700; color: #38bdf8; border-top: 1px solid #334155; border-bottom: 2px solid #475569;"
                     return [sub_style] * len(row)
 
                 val = row["TOTAL"]
@@ -1245,13 +1188,13 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 u_v, u_a, u_n = st.session_state.semaforos_mes.get(mes_k, (50_000_000.0, 100_000_000.0, 150_000_000.0))
 
                 if val > u_n:
-                    style_tot = "background-color: #7f1d1d; color: #fecaca; font-weight: bold;"
+                    style_tot = "background-color: #7f1d1d; color: #fecaca; font-weight: 700;"
                 elif val > u_a:
-                    style_tot = "background-color: #7c2d12; color: #ffedd5; font-weight: bold;"
+                    style_tot = "background-color: #7c2d12; color: #ffedd5; font-weight: 700;"
                 elif val > u_v:
-                    style_tot = "background-color: #78350f; color: #fef3c7; font-weight: bold;"
+                    style_tot = "background-color: #78350f; color: #fef3c7; font-weight: 700;"
                 else:
-                    style_tot = "background-color: #064e3b; color: #d1fae5; font-weight: bold;"
+                    style_tot = "background-color: #064e3b; color: #d1fae5; font-weight: 700;"
 
                 idx_tot = list(row.index).index("TOTAL")
                 styles[idx_tot] = style_tot
@@ -1354,17 +1297,16 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
             with col_desc_ch:
                 st.download_button(
-                    "📥 Descargar Sábana en Excel",
+                    "📥 Descargar Excel",
                     export_clearing_excel(matriz_ch, bancos_activos),
                     f"Clearing_{dt.date.today().strftime('%Y%m%d')}.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary",
                     use_container_width=True,
                 )
 
             with col_desc_pdf:
                 st.download_button(
-                    "📄 Descargar Sábana en PDF",
+                    "📄 Descargar PDF",
                     export_clearing_pdf(matriz_ch, bancos_activos),
                     f"Clearing_{dt.date.today().strftime('%Y%m%d')}.pdf",
                     "application/pdf",
@@ -1388,10 +1330,9 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             )
 
     # -----------------------------------------------------------------------
-    # TAB B: Calendario Visual (Limpio con Acordeón)
+    # TAB B: Calendario Visual Interactivo (Altura Fija + Modal)
     # -----------------------------------------------------------------------
     with tab_cal:
-        st.subheader("📅 Calendario Visual de Clearing")
         col_cal_m, col_cal_y = st.columns([1, 1])
         mes_cal_sel = col_cal_m.selectbox("Mes", list(core.MESES_ES.values()), index=dt.date.today().month - 1, key="cal_mes_select")
         ano_cal_sel = col_cal_y.number_input("Año", min_value=2024, max_value=2030, value=dt.date.today().year, key="cal_ano_input")
@@ -1402,62 +1343,37 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
         c_cols = st.columns(7)
         for i, nom_d in enumerate(dias_nombres):
-            c_cols[i].markdown(f"<div style='text-align:center; font-weight:bold; color:#94a3b8; padding-bottom:6px;'>{nom_d}</div>", unsafe_allow_html=True)
+            c_cols[i].markdown(f"<div style='text-align:center; font-weight:600; font-size:12px; color:#94a3b8; padding-bottom:8px;'>{nom_d}</div>", unsafe_allow_html=True)
+
+        df_activos_cal = df_ch[df_ch.get("Estado", "Emitido").astype(str).str.lower() != "anulado"]
 
         for week in cal:
             w_cols = st.columns(7)
             for d_idx, day in enumerate(week):
                 with w_cols[d_idx]:
                     if day == 0:
-                        st.markdown("<div style='min-height:96px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height:84px;'></div>", unsafe_allow_html=True)
                     else:
                         fecha_d = dt.date(ano_cal_sel, num_mes_sel, day)
-                        df_dia = df_ch[df_ch["Fecha Pago"].dt.date == fecha_d]
+                        df_dia = df_activos_cal[df_activos_cal["Fecha Pago"].dt.date == fecha_d]
                         tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
 
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
-                        lbl_feriado = " <span style='color:#f59e0b; font-size:10px;'>(Feriado)</span>" if es_feriado else ""
+                        punto_feriado = " • Feriado" if es_feriado else ""
 
                         if tot_dia > 0:
-                            items_bancos = ""
-                            por_banco = df_dia.groupby("Banco")["Importe"].sum()
-                            for b, m in por_banco.items():
-                                items_bancos += f"<div style='font-size:10px; color:#cbd5e1; margin-bottom:2px;'>• {b}: <b>{fmt_ars(m)}</b></div>"
-
-                            tot_html = f"<div class='cal-day-total'>{fmt_ars(tot_dia)}</div>"
-                            details_html = f"""
-                            <details style="margin-top:4px;">
-                                <summary class="cal-details-summary">▾ Ver detalle</summary>
-                                <div style="margin-top:4px; padding-top:4px; border-top:1px solid #334155;">
-                                    {items_bancos}
-                                </div>
-                            </details>
-                            """
+                            label_btn = f"{day:02d}{punto_feriado}\n{fmt_ars(tot_dia)}"
+                            if st.button(label_btn, key=f"btn_d_{fecha_d}", use_container_width=True):
+                                abrir_modal_dia(fecha_d, df_dia)
                         else:
-                            tot_html = "<div style='font-size:11px; color:#64748b; margin-top:6px;'>Sin vencimientos</div>"
-                            details_html = ""
-
-                        st.markdown(
-                            f"""
-                            <div class='cal-day-box'>
-                                <div>
-                                    <div class='cal-day-header'>
-                                        <span>{day:02d}</span>{lbl_feriado}
-                                    </div>
-                                    {tot_html}
-                                </div>
-                                {details_html}
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
+                            st.button(f"{day:02d}{punto_feriado}\n—", key=f"btn_d_{fecha_d}", disabled=True, use_container_width=True)
 
     # -----------------------------------------------------------------------
-    # TAB C: Carga de Cheques Emitidos
+    # TAB C: Carga Masiva e Individual (Blindada contra Duplicados y Errores)
     # -----------------------------------------------------------------------
     with tab_carga_ch:
         st.subheader("➕ Cargar Nuevos Cheques Emitidos")
-        st.caption("Los cheques cargados completan automáticamente todas las columnas de calendario y se sincronizan directamente con Google Sheets.")
+        st.caption("Validación automática de duplicados y blindaje de importación desde Excel.")
 
         if "cheque_guardado_msj" in st.session_state:
             st.success(st.session_state.cheque_guardado_msj, icon="✅")
@@ -1473,15 +1389,15 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
         bancos_predefinidos = ["BBVA", "BNA", "GALICIA", "MACRO", "PROVINCIA", "SANTANDER", "SUPERVIELLE"]
 
         if modo_carga_ch == "📋 Pegar desde Excel (Masivo)":
-            st.caption("Copiá desde tu Excel las columnas en este orden: `Banco` | `Fecha Emisión` | `Fecha Pago` | `Nro. Cheque` | `Importe` | `Beneficiario`")
+            st.caption("Copiá las columnas: `Banco` | `Fecha Emisión` | `Fecha Pago` | `Nro. Cheque` | `Importe` | `Beneficiario` (con o sin encabezados):")
             txt_ch_excel = st.text_area(
                 "Pegar celdas copiadas",
-                placeholder="GALICIA\t07/08/2026\t01/09/2026\t1264\t1500000\tADITIVOS ALIMENTARIOS SRL\nSANTANDER\t11/08/2026\t11/09/2026\t2140\t2500000\tLOS PROFESIONALES SA",
+                placeholder="GALICIA\t24/09/2026\t21/10/2026\t1433\t$ 5.144.292,18\tFAMIQ SRL\nSANTANDER\t24/09/2026\t29/10/2026\t2334\t8.765.304,12\tESTABLECIMIENTO GRAFICO",
                 height=130,
                 key="txt_ch_excel_input",
             )
 
-            if st.button("📥 Procesar y Guardar Cheques en Google Sheets", type="primary"):
+            if st.button("📥 Procesar y Guardar Cheques en Google Sheets"):
                 if not txt_ch_excel.strip():
                     st.warning("El campo de texto está vacío.")
                 else:
@@ -1491,11 +1407,21 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                         p = re.split(r"[\t;|]+", line)
                         if len(p) >= 5:
                             b_val = p[0].strip().upper()
+                            # Blindaje: omitir si es la fila de encabezados de Excel
+                            if b_val in ("BANCO", "BANK", "ENTIDAD") or "CHEQUE" in str(p[3]).upper():
+                                continue
+
                             fe_val = pd.to_datetime(p[1].strip(), dayfirst=True, errors="coerce")
                             fp_val = pd.to_datetime(p[2].strip(), dayfirst=True, errors="coerce")
-                            nro_val = p[3].strip()
-                            imp_raw = p[4].strip().replace("$", "").replace(" ", "").replace(".", "").replace(",", ".")
-                            imp_val = float(imp_raw) if imp_raw else 0.0
+                            nro_val = str(p[3]).strip()
+                            
+                            # Conversión numérica protegida contra ValueError
+                            imp_raw = str(p[4]).replace("$", "").replace(" ", "").replace(".", "").replace(",", ".").strip()
+                            try:
+                                imp_val = float(imp_raw) if imp_raw else 0.0
+                            except (ValueError, TypeError):
+                                continue
+
                             benef_val = p[5].strip() if len(p) > 5 else ""
 
                             if pd.notna(fp_val) and imp_val > 0:
@@ -1509,17 +1435,30 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                                     "Importe": imp_val,
                                     "CUIT Beneficiario": "",
                                     "Razón Social Beneficiario": benef_val,
+                                    "Estado": "Emitido",
+                                    "Motivo Anulación": "",
                                 })
 
-                    if nuevos_cheques:
-                        df_nuevos = pd.DataFrame(nuevos_cheques)
-                        df_act = pd.concat([get_cheques(), df_nuevos], ignore_index=True)
-                        if save_cheques_source(df_act):
-                            st.session_state.df_cheques = core.normalize_cheques_df(df_act)
-                            st.session_state.cheque_guardado_msj = f"¡Se guardaron exitosamente {len(nuevos_cheques)} cheques en la base de datos!"
-                            st.rerun()
+                    if not nuevos_cheques:
+                        st.error("No se encontraron filas válidas para procesar. Revisá los datos copiados.")
                     else:
-                        st.error("No se pudieron interpretar las filas pegadas. Revisá las columnas.")
+                        # Validación de duplicados
+                        df_actual = get_cheques()
+                        validos, duplicados = core.check_cheque_duplicates(df_actual, nuevos_cheques)
+
+                        if duplicados:
+                            det_dups = ", ".join([f"#{d['Nro. de Cheque']} ({d['Banco']})" for d in duplicados[:5]])
+                            st.warning(f"⚠️ Se detectaron **{len(duplicados)} cheques duplicados** ya existentes en la base y fueron omitidos: {det_dups}")
+
+                        if validos:
+                            df_nuevos = pd.DataFrame(validos)
+                            df_act = pd.concat([df_actual, df_nuevos], ignore_index=True)
+                            if save_cheques_source(df_act):
+                                st.session_state.df_cheques = core.normalize_cheques_df(df_act)
+                                st.session_state.cheque_guardado_msj = f"¡Se guardaron exitosamente {len(validos)} cheques en la base de datos!"
+                                st.rerun()
+                        else:
+                            st.error("Todos los cheques pegados ya figuraban previamente en la base de datos.")
         else:
             with st.form("form_nuevo_cheque"):
                 c_ch1, c_ch2, c_ch3 = st.columns(3)
@@ -1536,22 +1475,71 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     ch_cuit_b = st.text_input("CUIT Beneficiario", placeholder="Opcional")
                     ch_razon_b = st.text_input("Razón Social Beneficiario", placeholder="Ej: HAASEN SA")
 
-                if st.form_submit_button("💾 Guardar Cheque", type="primary", use_container_width=True):
-                    nuevo_ch_row = pd.DataFrame([{
+                if st.form_submit_button("💾 Guardar Cheque", use_container_width=True):
+                    df_actual = get_cheques()
+                    item_single = [{
                         "Banco": ch_banco,
                         "EMPRESA": ch_empresa,
                         "Cuenta Libradora": ch_cuenta,
                         "Fecha Emisión": pd.Timestamp(ch_fe),
                         "Fecha Pago": pd.Timestamp(ch_fp),
-                        "Nro. de Cheque": ch_nro,
+                        "Nro. de Cheque": str(ch_nro).strip(),
                         "Importe": float(ch_imp),
                         "CUIT Beneficiario": ch_cuit_b,
                         "Razón Social Beneficiario": ch_razon_b,
-                    }])
-                    df_act = pd.concat([get_cheques(), nuevo_ch_row], ignore_index=True)
-                    if save_cheques_source(df_act):
-                        st.session_state.df_cheques = core.normalize_cheques_df(df_act)
-                        st.session_state.cheque_guardado_msj = f"¡Cheque N° {ch_nro} guardado exitosamente en la base de datos!"
+                        "Estado": "Emitido",
+                        "Motivo Anulación": "",
+                    }]
+                    validos, duplicados = core.check_cheque_duplicates(df_actual, item_single)
+                    if duplicados:
+                        st.error(f"❌ Error de duplicidad: El cheque N° {ch_nro} para {ch_banco} ya existe en la base de datos.")
+                    else:
+                        df_act = pd.concat([df_actual, pd.DataFrame(validos)], ignore_index=True)
+                        if save_cheques_source(df_act):
+                            st.session_state.df_cheques = core.normalize_cheques_df(df_act)
+                            st.session_state.cheque_guardado_msj = f"¡Cheque N° {ch_nro} guardado exitosamente!"
+                            st.rerun()
+
+    # -----------------------------------------------------------------------
+    # TAB D: Anulación de Cheques (Baja Lógica / Trazabilidad)
+    # -----------------------------------------------------------------------
+    with tab_bajas:
+        st.subheader("🚫 Anulación de Cheques (Baja Lógica)")
+        st.caption("Anular un cheque lo excluye inmediatamente del clearing y del calendario, preservando el registro histórico en Google Sheets.")
+
+        activos = df_ch[df_ch.get("Estado", "Emitido").astype(str).str.lower() != "anulado"].copy()
+        if activos.empty:
+            st.info("No hay cheques activos en circulación para anular.")
+        else:
+            col_b_an1, col_b_an2 = st.columns([1, 1])
+            with col_b_an1:
+                bancos_con_ch = sorted(activos["Banco"].unique().tolist())
+                b_filtro_an = st.selectbox("Filtrar por Banco:", ["Todos"] + bancos_con_ch, key="sel_b_anular")
+            
+            df_para_anular = activos if b_filtro_an == "Todos" else activos[activos["Banco"] == b_filtro_an]
+
+            opciones_anular = [
+                f"#{r['Nro. de Cheque']} | {r['Banco']} | {fmt_ars(r['Importe'])} | {r.get('Razón Social Beneficiario', '')} (Vto: {r['Fecha Pago'].strftime('%d/%m/%Y') if pd.notna(r['Fecha Pago']) else ''})"
+                for _, r in df_para_anular.iterrows()
+            ]
+
+            ch_sel_anular = st.selectbox("Seleccionar Cheque a Anular:", opciones_anular, key="sel_ch_anular_box")
+            motivo_anulacion = st.text_input("Motivo de anulación (opcional):", placeholder="Ej: Error en fecha / Reemplazado por transferencia", key="motivo_anular_txt")
+
+            if st.button("🚫 Proceder con la Anulación del Cheque"):
+                nro_extraido = ch_sel_anular.split("|")[0].replace("#", "").strip()
+                banco_extraido = ch_sel_anular.split("|")[1].strip()
+
+                df_mod = get_cheques().copy()
+                mask = (df_mod["Nro. de Cheque"].astype(str).str.strip() == nro_extraido) & (df_mod["Banco"].astype(str).str.strip().str.upper() == banco_extraido.upper())
+                
+                if mask.any():
+                    df_mod.loc[mask, "Estado"] = "Anulado"
+                    df_mod.loc[mask, "Motivo Anulación"] = motivo_anulacion or "Anulado por Tesorería"
+                    if save_cheques_source(df_mod):
+                        st.session_state.df_cheques = core.normalize_cheques_df(df_mod)
+                        st.success(f"¡El cheque N° {nro_extraido} de {banco_extraido} ha sido ANULADO exitosamente y excluido del Clearing!")
+                        time.sleep(0.5)
                         st.rerun()
 
 # ===========================================================================
@@ -1590,7 +1578,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
     with c_box_btn:
         st.write("")
         st.write("")
-        btn_consultar_bcra = st.button("🔎 Consultar BCRA", type="primary", use_container_width=True)
+        btn_consultar_bcra = st.button("🔎 Consultar BCRA", use_container_width=True)
 
     if btn_consultar_bcra and cuits_raw.strip():
         lista_cuits = core.parse_cuits_input(cuits_raw)
@@ -1639,7 +1627,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             st.markdown(
                 """
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <b style="font-size:15px; color:#f8fafc;">Listado de Libradores</b>
+                    <b style="font-size:14px; color:#f8fafc;">Listado de Libradores</b>
                     <small style="color:#94a3b8;">Prioridad: Alerta → Revisar → Sin Alertas</small>
                 </div>
                 """,
@@ -1666,12 +1654,12 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 imp_txt = f"<span style='color:#ef4444; font-weight:700;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#94a3b8;'>(0 impagos)</span>"
 
                 table_rows.append(
-                    f"<tr style='border-bottom: 1px solid #2d3748;'>"
-                    f"<td style='padding:11px 8px; color:#f8fafc;'><b>{x['denominacion']}</b><br><small style='font-family:monospace; color:#94a3b8;'>{x['cuit']}</small></td>"
-                    f"<td style='text-align:center; padding:11px 4px;'><span style='display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; font-weight:700; font-size:11.5px; {badge_style}'>{sit}</span></td>"
-                    f"<td style='padding:11px 8px; font-weight:700; color:#f8fafc;'>{fmt_ars(x['debt'])}</td>"
-                    f"<td style='padding:11px 8px; color:#f8fafc;'>{x['rejected']} {imp_txt}</td>"
-                    f"<td style='padding:11px 8px; text-align:right;'><span style='display:inline-block; padding:3px 9px; border-radius:9999px; font-size:11px; font-weight:700; {pill_style}'>{x['risk_label']}</span></td>"
+                    f"<tr style='border-bottom: 1px solid #1e293b;'>"
+                    f"<td style='padding:10px 8px; color:#f8fafc;'><b>{x['denominacion']}</b><br><small style='font-family:monospace; color:#94a3b8;'>{x['cuit']}</small></td>"
+                    f"<td style='text-align:center; padding:10px 4px;'><span style='display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; font-weight:700; font-size:11.5px; {badge_style}'>{sit}</span></td>"
+                    f"<td style='padding:10px 8px; font-weight:700; color:#f8fafc;'>{fmt_ars(x['debt'])}</td>"
+                    f"<td style='padding:10px 8px; color:#f8fafc;'>{x['rejected']} {imp_txt}</td>"
+                    f"<td style='padding:10px 8px; text-align:right;'><span style='display:inline-block; padding:3px 9px; border-radius:9999px; font-size:11px; font-weight:700; {pill_style}'>{x['risk_label']}</span></td>"
                     f"</tr>"
                 )
 
@@ -1701,7 +1689,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             )
 
             opciones_nombres = [f"{x['denominacion']} ({x['cuit']})" for x in data_bcra]
-            sel_lib = st.selectbox("Seleccionar para inspeccionar:", opciones_nombres, label_visibility="collapsed", key="sel_drawer_lib")
+            sel_lib = st.selectbox("Seleccionar:", opciones_nombres, label_visibility="collapsed", key="sel_drawer_lib")
             idx_sel = opciones_nombres.index(sel_lib)
             lib = data_bcra[idx_sel]
 
@@ -1714,8 +1702,8 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
 
             drawer_html = (
                 f"<div class='bcra-drawer-box'>"
-                f"<h3 style='margin:0 0 2px 0; font-size:17.5px; font-weight:700; color:#f8fafc;'>{lib['denominacion']}</h3>"
-                f"<div style='font-family:monospace; color:#94a3b8; font-size:12.5px; margin-bottom:10px;'>{lib['cuit']}</div>"
+                f"<h3 style='margin:0 0 2px 0; font-size:16px; font-weight:700; color:#f8fafc;'>{lib['denominacion']}</h3>"
+                f"<div style='font-family:monospace; color:#94a3b8; font-size:12px; margin-bottom:10px;'>{lib['cuit']}</div>"
                 f"<span style='display:inline-block; padding:3px 9px; border-radius:9999px; font-size:11px; font-weight:700; {badge_d_style}'>{lib['risk_label']}</span>"
                 f"<div style='display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px;'>"
                 f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Peor Situación</div><b style='font-size:15px; color:#f8fafc; margin-top:2px; display:block;'>{lib['worst']}</b></div>"
@@ -1737,7 +1725,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                 st.markdown(f"<div style='padding:7px 10px; border-radius:6px; font-size:12px; font-weight:500; margin-bottom:5px; {al_style}'>{al}</div>", unsafe_allow_html=True)
 
             if lib["last3"]:
-                st.markdown("<small style='font-weight:700; text-transform:uppercase; color:#94a3b8;'>Últimos 3 Cheques Rechazados</small>", unsafe_allow_html=True)
+                st.markdown("<small style='font-weight:600; text-transform:uppercase; color:#94a3b8;'>Últimos 3 Cheques Rechazados</small>", unsafe_allow_html=True)
                 for ch in lib["last3"]:
                     f_ch = str(ch.get("fechaRechazo", "—")).split("T")[0]
                     if "-" in f_ch:
@@ -1746,10 +1734,10 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                             f_ch = f"{p_f[2]}-{p_f[1]}-{p_f[0]}"
                     m_ch = fmt_ars(ch.get("monto", 0))
                     estado_ch = "<span style='color:#34d399; font-weight:700;'>Pagado</span>" if ch.get("fechaPago") else "<span style='color:#f87171; font-weight:700;'>Impago</span>"
-                    st.markdown(f"<div style='font-size:12px; border-bottom:1px solid #334155; padding:4px 0; color:#cbd5e1;'>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{estado_ch}]</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:12px; border-bottom:1px solid #1e293b; padding:4px 0; color:#cbd5e1;'>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{estado_ch}]</div>", unsafe_allow_html=True)
 
         st.divider()
-        st.subheader("📱 Mensaje de sugerencia para WhatsApp")
+        st.subheader("📱 Mensaje para WhatsApp")
         rechazados = [x for x in data_bcra if x["risk"] == "bad"]
         revisar = [x for x in data_bcra if x["risk"] == "warn"]
 
@@ -1774,4 +1762,4 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
         else:
             wa_txt = "Hola! Todos los libradores analizados están en condiciones *OK (Sin Alertas)*. ✅"
 
-        st.text_area("Copia el texto directamente para enviar:", value=wa_txt, height=130)
+        st.text_area("Copia el texto directamente para enviar:", value=wa_txt, height=120)
