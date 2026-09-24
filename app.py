@@ -182,7 +182,6 @@ def save_data_source(df: pd.DataFrame) -> bool:
     return False
 
 
-# Lectura y guardado de Cheques Emitidos
 def load_cheques_source() -> pd.DataFrame:
     if conn is not None:
         try:
@@ -1124,7 +1123,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     # TAB A: Sábana de Cámaras
     # -----------------------------------------------------------------------
     with tab_sabana:
-        # Configuración de Semáforos y Feriados
         with st.expander("⚙️ Configurar Semáforo de Tensión y Feriados", expanded=False):
             col_sem1, col_sem2, col_sem3 = st.columns(3)
             with col_sem1:
@@ -1161,7 +1159,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
         st.divider()
 
-        # Filtros de visualización
+        # Filtros de visualización (por defecto desactivado para ver la sábana completa)
         hoy_date = dt.date.today()
         col_filtro_ch, col_desc_ch, col_desc_pdf = st.columns([2, 1.2, 1.2])
         with col_filtro_ch:
@@ -1173,25 +1171,23 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
         if matriz_ch.empty:
             st.info("No hay cheques pendientes registrados para el período seleccionado.")
         else:
-            # Función para aplicar estilos dinámicos de semáforo en 4 escalas
             def style_clearing(row):
                 val = row["TOTAL"]
                 style_tot = ""
                 if val > u_naranja:
-                    style_tot = "background-color: #7f1d1d; color: #fecaca; font-weight: bold;" # Rojo
+                    style_tot = "background-color: #7f1d1d; color: #fecaca; font-weight: bold;"
                 elif val > u_amarillo:
-                    style_tot = "background-color: #7c2d12; color: #ffedd5; font-weight: bold;" # Naranja
+                    style_tot = "background-color: #7c2d12; color: #ffedd5; font-weight: bold;"
                 elif val > u_verde:
-                    style_tot = "background-color: #78350f; color: #fef3c7; font-weight: bold;" # Amarillo
+                    style_tot = "background-color: #78350f; color: #fef3c7; font-weight: bold;"
                 else:
-                    style_tot = "background-color: #064e3b; color: #d1fae5; font-weight: bold;" # Verde
+                    style_tot = "background-color: #064e3b; color: #d1fae5; font-weight: bold;"
 
                 styles = [""] * len(row)
                 idx_tot = list(row.index).index("TOTAL")
                 styles[idx_tot] = style_tot
                 return styles
 
-            # Exportador Excel Sábana
             def export_clearing_excel(pivot_df: pd.DataFrame, bancos_list: list[str]) -> bytes:
                 wb = Workbook()
                 ws = wb.active
@@ -1219,7 +1215,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                         if v > 0:
                             cell_b.number_format = "$ #,##0"
 
-                    # Celda total con semáforo
                     tot_v = float(r["TOTAL"])
                     cell_t = ws.cell(row=row_num, column=len(headers), value=tot_v)
                     cell_t.font = Font(bold=True)
@@ -1239,7 +1234,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 wb.save(buf)
                 return buf.getvalue()
 
-            # Exportador PDF Sábana
             def export_clearing_pdf(pivot_df: pd.DataFrame, bancos_list: list[str]) -> bytes:
                 buf = BytesIO()
                 doc = SimpleDocTemplate(buf, pagesize=landscape(A4), rightMargin=20, leftMargin=20, topMargin=25, bottomMargin=25)
@@ -1299,7 +1293,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     use_container_width=True,
                 )
 
-            # Presentación visual con formato '02-NOV'
             view_matriz = matriz_ch.rename(columns={"FECHA_LABEL": "FECHA"}).drop(columns=["Fecha Pago"])
             format_dict = {b: lambda v: fmt_ars(v) if v > 0 else "" for b in bancos_activos}
             format_dict["TOTAL"] = fmt_ars
@@ -1322,7 +1315,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
         num_mes_sel = [k for k, v in core.MESES_ES.items() if v == mes_cal_sel][0]
 
-        # Días del mes
         cal = calendar.monthcalendar(ano_cal_sel, num_mes_sel)
         dias_nombres = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
@@ -1344,7 +1336,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
                         lbl_feriado = " <span style='color:#f59e0b;'>(Feriado)</span>" if es_feriado else ""
 
-                        # Renderizado del día
                         items_bancos = ""
                         if not df_dia.empty:
                             por_banco = df_dia.groupby("Banco")["Importe"].sum()
@@ -1662,7 +1653,6 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                     estado_ch = "<span style='color:#34d399; font-weight:700;'>Pagado</span>" if ch.get("fechaPago") else "<span style='color:#f87171; font-weight:700;'>Impago</span>"
                     st.markdown(f"<div style='font-size:12px; border-bottom:1px solid #334155; padding:4px 0; color:#cbd5e1;'>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{estado_ch}]</div>", unsafe_allow_html=True)
 
-        # Módulo WhatsApp
         st.divider()
         st.subheader("📱 Mensaje de sugerencia para WhatsApp")
         rechazados = [x for x in data_bcra if x["risk"] == "bad"]
