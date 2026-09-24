@@ -773,7 +773,7 @@ MESES_ABR = {
 
 
 def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """Estandariza los tipos de datos de la base de cheques emitidos."""
+    """Estandariza los tipos de datos de la base de cheques emitidos sin alterar decimales ni fechas."""
     if df_raw is None or df_raw.empty:
         return pd.DataFrame(columns=[
             "Banco", "EMPRESA", "Cuenta Libradora", "Fecha Emisión", "Fecha Pago",
@@ -782,7 +782,6 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
         ])
 
     df = df_raw.copy()
-    # Si viene con nombres duplicados de Google Sheets (DIA y DIA)
     cols = list(df.columns)
     col_mapping = {}
     dia_count = 0
@@ -797,26 +796,48 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
             col_mapping[c] = "MES_TXT"
     df = df.rename(columns=col_mapping)
 
-    # Conversión de fechas
+    # 1. PARSEO SEGURO DE IMPORTES (Evita multiplicar por 10 o 100)
+    def clean_currency_val(val):
+        if pd.isna(val):
+            return 0.0
+        if isinstance(val, (int, float)):
+            return float(val)
+        s = str(val).strip().replace("$", "").replace(" ", "")
+        if not s:
+            return 0.0
+        # Si tiene coma y punto, asumimos formato argentino (1.250.000,50)
+        if "," in s and "." in s:
+            s = s.replace(".", "").replace(",", ".")
+        elif "," in s:
+            s = s.replace(",", ".")
+        try:
+            return float(s)
+        except ValueError:
+            return 0.0
+
+    if "Importe" in df.columns:
+        df["Importe"] = df["Importe"].apply(clean_currency_val)
+
+    # 2. PARSEO ROBUSTO DE FECHAS (Prioriza DD/MM/AAAA)
     for f_col in ["Fecha Emisión", "Fecha Pago"]:
         if f_col in df.columns:
-            df[f_col] = pd.to_datetime(df[f_col], dayfirst=True, errors="coerce")
+            df[f_col] = pd.to_datetime(df[f_col], dayfirst=True, format="mixed", errors="coerce")
 
-    # Importe numérico
-    if "Importe" in df.columns:
-        df["Importe"] = (
-            df["Importe"]
-            .astype(str)
-            .str.replace("$", "", regex=False)
-            .str.replace(" ", "", regex=False)
-            .str.replace(".", "", regex=False)
-            .str.replace(",", ".", regex=False)
-        )
-        df["Importe"] = pd.to_numeric(df["Importe"], errors="coerce").fillna(0.0)
+    # Si Fecha Pago falló pero tenemos DIA_NUM, MES_NUM, AÑO en la hoja, reconstruimos
+    if "DIA_NUM" in df.columns and "MES_NUM" in df.columns and "AÑO" in df.columns:
+        mask_na = df["Fecha Pago"].isna()
+        if mask_na.any():
+            try:
+                df.loc[mask_na, "Fecha Pago"] = pd.to_datetime({
+                    "year": pd.to_numeric(df.loc[mask_na, "AÑO"], errors="coerce"),
+                    "month": pd.to_numeric(df.loc[mask_na, "MES_NUM"], errors="coerce"),
+                    "day": pd.to_numeric(df.loc[mask_na, "DIA_NUM"], errors="coerce"),
+                })
+            except Exception:
+                pass
 
-    # Autocompletar datos auxiliares de fecha de pago
+    # Etiquetas auxiliares en español
     if "Fecha Pago" in df.columns:
-        valid_fp = df["Fecha Pago"].dropna()
         df["DIA_TXT"] = df["Fecha Pago"].dt.dayofweek.map(DIAS_ES)
         df["DIA_NUM"] = df["Fecha Pago"].dt.day
         df["MES_NUM"] = df["Fecha Pago"].dt.month
@@ -826,102 +847,7 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
             lambda d: f"{d.day:02d}-{MESES_ABR.get(d.month, '')}" if pd.notna(d) else ""
         )
 
-    # Normalizar bancos
     if "Banco" in df.columns:
         df["Banco"] = df["Banco"].astype(str).str.strip().str.upper()
 
     return df
-
-
-def prepare_cheques_to_save(df: pd.DataFrame) -> pd.DataFrame:
-    """Prepara el DataFrame con las 14 columnas exactas de Google Sheets."""
-    df_out = pd.DataFrame()
-    df_out["Banco"] = df["Banco"].astype(str).str.strip().str.upper()
-    df_out["EMPRESA"] = df.get("EMPRESA", "FD")
-    df_out["Cuenta Libradora"] = df.get("Cuenta Libradora", "")
-    
-    # Fechas en formato dd/mm/yyyy
-    df_out["Fecha Emisión"] = pd.to_datetime(df["Fecha Emisión"]).dt.strftime("%d/%m/%Y")
-    df_out["Fecha Pago"] = pd.to_datetime(df["Fecha Pago"]).dt.strftime("%d/%m/%Y")
-
-    fp = pd.to_datetime(df["Fecha Pago"], dayfirst=True)
-    df_out["DIA"] = fp.dt.dayofweek.map(DIAS_ES)
-    df_out["DIA.1"] = fp.dt.day
-    df_out["MES"] = fp.dt.month
-    df_out["MES.2"] = fp.dt.month.map(MESES_ES)
-    df_out["AÑO"] = fp.dt.year
-
-    df_out["Nro. de Cheque"] = df.get("Nro. de Cheque", "")
-    df_out["Importe"] = df["Importe"].round(2)
-    df_out["CUIT Beneficiario"] = df.get("CUIT Beneficiario", "")
-    df_out["Razón Social Beneficiario"] = df.get("Razón Social Beneficiario", "")
-
-    return df_out
-
-
-def build_clearing_matrix(df: pd.DataFrame, fecha_inicio: dt.date | None = None) -> tuple[pd.DataFrame, list[str]]:
-    """Genera la sábana de clearing agrupada por día y bancos."""
-    if df.empty or "Fecha Pago" not in df.columns:
-        return pd.DataFrame(), []
-
-    sub = df.copy()
-    if fecha_inicio:
-        sub = sub[sub["Fecha Pago"].dt.date >= fecha_inicio]
-
-    if sub.empty:
-        return pd.DataFrame(), []
-
-    bancos = sorted([b for b in sub["Banco"].dropna().unique() if str(b).strip()])
-    
-    # Pivot por Fecha Pago
-    pivot = sub.pivot_table(
-        index=["Fecha Pago", "FECHA_LABEL"],
-        columns="Banco",
-        values="Importe",
-        aggfunc="sum",
-        fill_value=0.0,
-    ).reset_index()
-
-    # Total diario
-    banco_cols = [b for b in bancos if b in pivot.columns]
-    pivot["TOTAL"] = pivot[banco_cols].sum(axis=1)
-    pivot = pivot.sort_values("Fecha Pago").reset_index(drop=True)
-
-    return pivot, banco_cols
-
-
-def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = None) -> dict:
-    """Calcula métricas clave considerando días hábiles y feriados."""
-    if df.empty:
-        return {
-            "total_comprometido": 0.0,
-            "cant_cheques": 0,
-            "dias_habiles": 0,
-            "promedio_diario": 0.0,
-            "pico_maximo": 0.0,
-        }
-
-    feriados_set = set(feriados or [])
-    total = df["Importe"].sum()
-    cant = len(df)
-
-    fechas_unicas = df["Fecha Pago"].dropna().dt.date.unique()
-    dias_habiles = 0
-    for d in fechas_unicas:
-        # Lunes a Viernes (0 a 4) y no feriado
-        if d.weekday() < 5 and d not in feriados_set:
-            dias_habiles += 1
-
-    promedio_diario = (total / dias_habiles) if dias_habiles > 0 else (total / len(fechas_unicas) if len(fechas_unicas) > 0 else 0.0)
-
-    # Máximo diario
-    diarios = df.groupby(df["Fecha Pago"].dt.date)["Importe"].sum()
-    pico = diarios.max() if not diarios.empty else 0.0
-
-    return {
-        "total_comprometido": total,
-        "cant_cheques": cant,
-        "dias_habiles": dias_habiles,
-        "promedio_diario": promedio_diario,
-        "pico_maximo": pico,
-    }
