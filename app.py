@@ -745,8 +745,8 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     st.caption("No hay notas u observaciones adicionales registradas para este plan.")
 
             def merge_concepto_obs(r):
-                c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) else ""
-                o = str(r["obs"]).strip() if pd.notna(r["obs"]) else ""
+                c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) and str(r["concepto"]).strip().lower() != "nan" else ""
+                o = str(r["obs"]).strip() if pd.notna(r["obs"]) and str(r["obs"]).strip().lower() != "nan" else ""
                 if c and o:
                     return f"{c} ({o})" if c != o else c
                 return c or o or "Presupuesto Base"
