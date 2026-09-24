@@ -254,7 +254,6 @@ def init_state() -> None:
     if "feriados" not in st.session_state:
         st.session_state.feriados = []
     if "semaforos_mes" not in st.session_state:
-        # Diccionario de umbrales por mes: {'2026-09': (verde, amarillo, naranja)}
         st.session_state.semaforos_mes = {}
 
 
@@ -707,7 +706,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
             df_p_raw = df_filtered[df_filtered["proveedor"] == p_sel].copy()
 
             def clean_op_label(r):
-                c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) and str(r["concepto"]).strip() else ""
+                c = str(r["concepto"]).strip() if pd.notna(r["concepto"]) and str(r["concepto"]).strip().lower() != "nan" else ""
                 return c if c else "Operación General / Presupuesto Base"
 
             df_p_raw["operacion_identificada"] = df_p_raw.apply(clean_op_label, axis=1)
@@ -736,7 +735,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
 
             st.divider()
 
-            todas_obs = [str(o).strip() for o in df_p["obs"].dropna().unique() if str(o).strip()]
+            todas_obs = [str(o).strip() for o in df_p["obs"].dropna().unique() if str(o).strip() and str(o).strip().lower() != "nan"]
             with st.expander("🔍 Ver detalle de observaciones del acuerdo"):
                 if todas_obs:
                     for idx_o, obs_t in enumerate(todas_obs, 1):
@@ -1184,7 +1183,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     # TAB A: Sábana de Cámaras
     # -----------------------------------------------------------------------
     with tab_sabana:
-        # Configuración de Semáforos por Mes y Feriados
         meses_unicos = sorted(df_ch["MES_KEY"].dropna().unique().tolist()) if not df_ch.empty else []
         mes_actual_default = dt.date.today().strftime("%Y-%m")
         if mes_actual_default not in meses_unicos and meses_unicos:
@@ -1195,7 +1193,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             with col_m_sel:
                 mes_conf = st.selectbox("Mes a calibrar:", meses_unicos if meses_unicos else [mes_actual_default], key="mes_conf_sem")
             
-            # Recuperar o inicializar valores del mes
             defaults_mes = st.session_state.semaforos_mes.get(mes_conf, (50_000_000.0, 100_000_000.0, 150_000_000.0))
             with col_sem1:
                 u_verde = st.number_input("🟢 Hasta (Holgado)", min_value=1_000_000.0, value=defaults_mes[0], step=5_000_000.0, format="%.0f", key=f"uv_{mes_conf}")
@@ -1224,7 +1221,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
         st.divider()
 
-        # Filtro de fecha y descarga
         hoy_date = dt.date.today()
         col_filtro_ch, col_desc_ch, col_desc_pdf = st.columns([2, 1.2, 1.2])
         with col_filtro_ch:
@@ -1241,7 +1237,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 styles = [""] * len(row)
 
                 if is_sub:
-                    # Fila de subtotal mensual: Fondo contrastado, texto bold blanco
                     sub_style = "background-color: #243042; font-weight: 800; color: #38bdf8; border-top: 1px solid #475569; border-bottom: 2px solid #64748b;"
                     return [sub_style] * len(row)
 
@@ -1423,7 +1418,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
                         lbl_feriado = " <span style='color:#f59e0b; font-size:10px;'>(Feriado)</span>" if es_feriado else ""
 
-                        # Vista limpia: Total destacado + acordeón colapsable
                         if tot_dia > 0:
                             items_bancos = ""
                             por_banco = df_dia.groupby("Banco")["Importe"].sum()
