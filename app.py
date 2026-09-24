@@ -1165,7 +1165,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
         hoy_date = dt.date.today()
         col_filtro_ch, col_desc_ch, col_desc_pdf = st.columns([2, 1.2, 1.2])
         with col_filtro_ch:
-            ver_desde_hoy = st.checkbox("Mostrar únicamente desde hoy en adelante", value=True)
+            ver_desde_hoy = st.checkbox("Mostrar únicamente desde hoy en adelante", value=False)
             f_desde_limite = hoy_date if ver_desde_hoy else None
 
         matriz_ch, bancos_activos = core.build_clearing_matrix(df_ch, fecha_inicio=f_desde_limite)
