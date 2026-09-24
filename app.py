@@ -126,23 +126,25 @@ st.markdown(
         color: #ffffff !important;
     }
 
-    /* Tarjetas del Calendario Minimalista */
-    .cal-btn-day {
-        background: #111827 !important;
-        border: 1px solid #1e293b !important;
-        border-radius: 8px !important;
-        padding: 8px !important;
-        text-align: left !important;
-        min-height: 84px !important;
-        width: 100% !important;
+    /* Tarjetas del Calendario Minimalista: Multilínea vertical sin recortes */
+    div[data-testid="column"] div.stButton > button {
+        height: 92px !important;
+        white-space: pre-line !important;
+        line-height: 1.35 !important;
         display: flex !important;
         flex-direction: column !important;
         justify-content: space-between !important;
-        transition: all 0.15s ease-in-out !important;
+        align-items: flex-start !important;
+        padding: 8px 10px !important;
+        text-align: left !important;
+        border-radius: 8px !important;
     }
-    .cal-btn-day:hover {
-        border-color: #3b82f6 !important;
-        background: #172236 !important;
+    div[data-testid="column"] div.stButton > button p {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 11.5px !important;
+        width: 100% !important;
+        text-align: left !important;
+        white-space: pre-line !important;
     }
 
     /* Badges de bancos minimalistas */
@@ -1330,7 +1332,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             )
 
     # -----------------------------------------------------------------------
-    # TAB B: Calendario Visual Interactivo (Altura Fija + Modal)
+    # TAB B: Calendario Visual Interactivo (Executive Financial Grid)
     # -----------------------------------------------------------------------
     with tab_cal:
         col_cal_m, col_cal_y = st.columns([1, 1])
@@ -1352,21 +1354,27 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             for d_idx, day in enumerate(week):
                 with w_cols[d_idx]:
                     if day == 0:
-                        st.markdown("<div style='min-height:84px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height:92px;'></div>", unsafe_allow_html=True)
                     else:
                         fecha_d = dt.date(ano_cal_sel, num_mes_sel, day)
                         df_dia = df_activos_cal[df_activos_cal["Fecha Pago"].dt.date == fecha_d]
                         tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
 
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
-                        punto_feriado = " • Feriado" if es_feriado else ""
+                        tag_feriado = " (Feriado)" if es_feriado else ""
 
                         if tot_dia > 0:
-                            label_btn = f"{day:02d}{punto_feriado}\n{fmt_ars(tot_dia)}"
+                            # Micro-indicador al pie con los bancos presentes en el día
+                            bancos_dia = df_dia["Banco"].dropna().unique().tolist()
+                            indicador_bancos = " ".join([f"●{str(b)[:3]}" for b in bancos_dia[:3]])
+
+                            # Número arriba, importe completo al medio, bancos abajo
+                            label_btn = f"{day:02d}{tag_feriado}\n\n{fmt_ars(tot_dia)}\n{indicador_bancos}"
                             if st.button(label_btn, key=f"btn_d_{fecha_d}", use_container_width=True):
                                 abrir_modal_dia(fecha_d, df_dia)
                         else:
-                            st.button(f"{day:02d}{punto_feriado}\n—", key=f"btn_d_{fecha_d}", disabled=True, use_container_width=True)
+                            # Días limpios sin vencimientos: solo el número tenue, sin guiones invasivos
+                            st.button(f"{day:02d}{tag_feriado}\n\n\n", key=f"btn_d_{fecha_d}", disabled=True, use_container_width=True)
 
     # -----------------------------------------------------------------------
     # TAB C: Carga Masiva e Individual (Blindada contra Duplicados y Errores)
