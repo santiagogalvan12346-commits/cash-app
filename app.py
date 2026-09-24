@@ -2,16 +2,15 @@
 """
 Suite Financiera — For Drink SA
 ====================================================================
-Versión Consolidada:
-- Planes y escaleras 100% en Pesos (ARS).
-- Carga de escaleras manual o pegable directamente desde Excel.
-- Legajo PDF con fila de cierre con totales generales.
-- Detalle de escaleras con visualizador de observaciones largas.
-- Analizador BCRA integrado nativo en modo oscuro.
+Módulos:
+1. 💵 Gestión de Tesorería (Planes de Pago y Escaleras ARS)
+2. 🏦 Clearing / Cheques Emitidos (Cámaras, Calendario y Semáforo)
+3. 🔍 Analizador de Libradores · BCRA (Scoring Nativo)
 """
 
 from __future__ import annotations
 
+import calendar
 import datetime as dt
 import re
 import time
@@ -65,7 +64,7 @@ st.markdown(
         color: #94a3b8;
     }
 
-    /* Estilos Dark Corporativos para Analizador BCRA */
+    /* Estilos Dark Corporativos para BCRA y Clearing */
     .bcra-card-dark {
         background: #18202a;
         border: 1px solid #2d3748;
@@ -106,6 +105,21 @@ st.markdown(
         border-radius: 8px;
         padding: 10px 12px;
     }
+    .cal-day-box {
+        background: #18202a;
+        border: 1px solid #2d3748;
+        border-radius: 8px;
+        padding: 8px;
+        min-height: 95px;
+    }
+    .cal-day-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #94a3b8;
+        margin-bottom: 4px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -142,7 +156,7 @@ def load_data_source() -> pd.DataFrame:
             if df_cloud is not None and not df_cloud.empty:
                 return core.normalize_df(df_cloud)
         except Exception as e:
-            st.sidebar.warning(f"Aviso Google Sheets: {e}")
+            st.sidebar.warning(f"Aviso Planes de Pago: {e}")
     if SEED_PATH.exists():
         return core.load_seed_csv(SEED_PATH)
     return core.normalize_df(pd.DataFrame(columns=core.COLUMNS))
@@ -168,13 +182,45 @@ def save_data_source(df: pd.DataFrame) -> bool:
     return False
 
 
+# Lectura y guardado de Cheques Emitidos
+def load_cheques_source() -> pd.DataFrame:
+    if conn is not None:
+        try:
+            df_ch = conn.read(worksheet="Cheques_Emitidos", ttl="0s")
+            if df_ch is not None and not df_ch.empty:
+                return core.normalize_cheques_df(df_ch)
+        except Exception as e:
+            st.sidebar.warning(f"Aviso Cheques Emitidos: {e}")
+    return core.normalize_cheques_df(pd.DataFrame())
+
+
+def save_cheques_source(df: pd.DataFrame) -> bool:
+    if not st.session_state.is_admin:
+        st.error("Acceso de solo lectura.")
+        return False
+
+    df_out = core.prepare_cheques_to_save(df)
+    if conn is not None:
+        try:
+            conn.update(worksheet="Cheques_Emitidos", data=df_out)
+            return True
+        except Exception as e:
+            st.error(f"Error al guardar cheques en Google Sheets: {e}")
+            return False
+    return False
+
+
 def init_state() -> None:
     if "df" not in st.session_state:
         st.session_state.df = load_data_source()
+    if "df_cheques" not in st.session_state:
+        st.session_state.df_cheques = load_cheques_source()
     if "editing_id" not in st.session_state:
         st.session_state.editing_id = None
     if "sede_global" not in st.session_state:
         st.session_state.sede_global = core.SEDE_CONSOLIDADO
+    if "feriados" not in st.session_state:
+        st.session_state.feriados = []
 
 
 init_state()
@@ -189,6 +235,17 @@ def set_df(df: pd.DataFrame, sync_cloud: bool = True) -> None:
     st.session_state.df = norm
     if sync_cloud and st.session_state.is_admin:
         save_data_source(norm)
+
+
+def get_cheques() -> pd.DataFrame:
+    return st.session_state.df_cheques
+
+
+def set_cheques(df: pd.DataFrame, sync_cloud: bool = True) -> None:
+    norm = core.normalize_cheques_df(df)
+    st.session_state.df_cheques = norm
+    if sync_cloud and st.session_state.is_admin:
+        save_cheques_source(norm)
 
 
 def fmt_ars(value: float) -> str:
@@ -219,7 +276,11 @@ if conn is not None:
 if st.session_state.is_admin:
     modulo_activo = st.sidebar.radio(
         "Herramienta Activa",
-        ["💵 Gestión de Tesorería", "🔍 Analizador de Libradores · BCRA"],
+        [
+            "💵 Gestión de Tesorería",
+            "🏦 Clearing / Cheques Emitidos",
+            "🔍 Analizador de Libradores · BCRA"
+        ],
         index=0,
     )
 else:
@@ -640,7 +701,6 @@ if modulo_activo == "💵 Gestión de Tesorería":
 
             st.divider()
 
-            # Observaciones consolidadas con botón interactivo
             todas_obs = [str(o).strip() for o in df_p["obs"].dropna().unique() if str(o).strip()]
             with st.expander("🔍 Ver detalle de observaciones del acuerdo"):
                 if todas_obs:
@@ -658,7 +718,6 @@ if modulo_activo == "💵 Gestión de Tesorería":
 
             df_p["presupuesto_obs"] = df_p.apply(merge_concepto_obs, axis=1)
 
-            # TABLA LIMPIA: Sin TC ni Moneda
             def format_ladder_table(sub_df: pd.DataFrame) -> pd.DataFrame:
                 t = sub_df.sort_values("fecha").copy()
                 return pd.DataFrame({
@@ -703,7 +762,6 @@ if modulo_activo == "💵 Gestión de Tesorería":
                         else:
                             cell.value = str(val) if pd.notna(val) else ""
 
-                # Fila de totales en Excel
                 tot_row = h_row + 1 + len(df_table)
                 ws.cell(row=tot_row, column=1, value="TOTAL GENERAL").font = Font(bold=True)
                 ws.cell(row=tot_row, column=1).alignment = Alignment(horizontal="center")
@@ -748,7 +806,6 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     total_cuotas_ars += m_val
                     pdf_data.append([f_str, c_str, fmt_ars(m_val), str(r["Estado"])])
 
-                # FILA DE TOTALES GENERALES AL PIE
                 pdf_data.append(["TOTAL ACORDADO", "", fmt_ars(total_cuotas_ars), ""])
 
                 num_rows = len(pdf_data)
@@ -859,7 +916,6 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 st.toast(st.session_state.escalera_guardada_msj, icon="🚀")
                 del st.session_state["escalera_guardada_msj"]
 
-            # Cabecera del acuerdo en Pesos
             c_cab1, c_cab2 = st.columns(2)
             with c_cab1:
                 esc_tesoreria = st.selectbox("Tesorería / Sede", core.TESORERIAS_VALIDAS, index=0 if sede_global == "Tucumán" else 1, key="esc_sede")
@@ -999,7 +1055,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     tesoreria_sel = st.selectbox("Sede", core.TESORERIAS_VALIDAS, index=core.TESORERIAS_VALIDAS.index(record["tesoreria"]) if record is not None else 0)
                     fecha_pago = st.date_input("Fecha", value=record["fecha"].date() if record is not None and pd.notna(record["fecha"]) else dt.date.today())
                     modo_p = st.radio("Proveedor", ["Existente", "Nuevo"], horizontal=True)
-                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=proveedores_existentes.index(record["proveedor"]) if record is not None and record["proveedor"] in proveedores_existentes else 0) if modo_p == "Existente" and proveedores_existentes else st.text_input("Nombre nuevo", value=record["proveedor"] if record is not None else "").strip().upper()
+                    proveedor = st.selectbox("Proveedor", proveedores_existentes, index=proveedores_existentes.index(record["proveedor"]) if record is not None else 0) if modo_p == "Existente" and proveedores_existentes else st.text_input("Nombre nuevo", value=record["proveedor"] if record is not None else "").strip().upper()
                     proyecto = st.text_input("Proyecto", value=record["proyecto"] if record is not None else "L2")
                     concepto = st.text_input("Operación / Concepto", value=record["concepto"] if record is not None else "")
                     importe = st.number_input("Importe en $ ARS", min_value=0.0, value=float(record["importe"]) if record is not None else 0.0, step=50000.0)
@@ -1050,7 +1106,370 @@ if modulo_activo == "💵 Gestión de Tesorería":
             st.download_button("⬇️ Descargar Excel Completo", xlsx_data, f"base_pagos_efectivo_{dt.date.today().isoformat()}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
 
 # ===========================================================================
-# MÓDULO 2: ANALIZADOR DE LIBRADORES · BCRA (NATIVO STREAMLIT DARK)
+# MÓDULO 2: CLEARING / CHEQUES EMITIDOS (CÁMARAS BANCARIAS)
+# ===========================================================================
+elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
+    df_ch = get_cheques()
+
+    st.title("Clearing Bancario — Cheques Emitidos")
+    st.caption("Seguimiento diario de cámaras compensadoras por banco emisor · For Drink SA")
+
+    tab_sabana, tab_cal, tab_carga_ch = st.tabs([
+        "🗓️ Sábana de Cámaras (Flujo Diario)",
+        "📅 Calendario Visual",
+        "➕ Carga de Cheques Emitidos",
+    ])
+
+    # -----------------------------------------------------------------------
+    # TAB A: Sábana de Cámaras
+    # -----------------------------------------------------------------------
+    with tab_sabana:
+        # Configuración de Semáforos y Feriados
+        with st.expander("⚙️ Configurar Semáforo de Tensión y Feriados", expanded=False):
+            col_sem1, col_sem2, col_sem3 = st.columns(3)
+            with col_sem1:
+                u_verde = st.number_input("🟢 Hasta (Holgado)", min_value=1_000_000.0, value=50_000_000.0, step=5_000_000.0, format="%.0f")
+            with col_sem2:
+                u_amarillo = st.number_input("🟡 Hasta (Atención)", min_value=u_verde, value=100_000_000.0, step=5_000_000.0, format="%.0f")
+            with col_sem3:
+                u_naranja = st.number_input("🟠 Hasta (Tensión Alta)", min_value=u_amarillo, value=150_000_000.0, step=5_000_000.0, format="%.0f")
+
+            st.caption("🔴 Por encima de ese valor se considera **Tensión Crítica**.")
+
+            st.markdown("---")
+            feriados_cargados = st.session_state.get("feriados", [])
+            f_feriado_nuevo = st.date_input("Marcar fecha como feriado nacional / bancario", value=None)
+            col_b_f1, col_b_f2 = st.columns([1, 3])
+            if col_b_f1.button("Agregar feriado") and f_feriado_nuevo:
+                if f_feriado_nuevo not in feriados_cargados:
+                    feriados_cargados.append(f_feriado_nuevo)
+                    st.session_state.feriados = sorted(feriados_cargados)
+                    st.rerun()
+            if feriados_cargados:
+                col_b_f2.write(f"Feriados registrados: {', '.join([d.strftime('%d/%m/%Y') for d in feriados_cargados])}")
+                if st.button("Limpiar todos los feriados"):
+                    st.session_state.feriados = []
+                    st.rerun()
+
+        # KPIs superiores
+        kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []))
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total en Cheques", fmt_ars(kpis_ch["total_comprometido"]))
+        c2.metric("Cheques Emitidos", f"{kpis_ch['cant_cheques']} valores")
+        c3.metric("Promedio Diario Hábil", fmt_ars(kpis_ch["promedio_diario"]), help="Calculado excluyendo sábados, domingos y feriados marcados.")
+        c4.metric("Pico Máximo Diario", fmt_ars(kpis_ch["pico_maximo"]))
+
+        st.divider()
+
+        # Filtros de visualización
+        hoy_date = dt.date.today()
+        col_filtro_ch, col_desc_ch, col_desc_pdf = st.columns([2, 1.2, 1.2])
+        with col_filtro_ch:
+            ver_desde_hoy = st.checkbox("Mostrar únicamente desde hoy en adelante", value=True)
+            f_desde_limite = hoy_date if ver_desde_hoy else None
+
+        matriz_ch, bancos_activos = core.build_clearing_matrix(df_ch, fecha_inicio=f_desde_limite)
+
+        if matriz_ch.empty:
+            st.info("No hay cheques pendientes registrados para el período seleccionado.")
+        else:
+            # Función para aplicar estilos dinámicos de semáforo en 4 escalas
+            def style_clearing(row):
+                val = row["TOTAL"]
+                style_tot = ""
+                if val > u_naranja:
+                    style_tot = "background-color: #7f1d1d; color: #fecaca; font-weight: bold;" # Rojo
+                elif val > u_amarillo:
+                    style_tot = "background-color: #7c2d12; color: #ffedd5; font-weight: bold;" # Naranja
+                elif val > u_verde:
+                    style_tot = "background-color: #78350f; color: #fef3c7; font-weight: bold;" # Amarillo
+                else:
+                    style_tot = "background-color: #064e3b; color: #d1fae5; font-weight: bold;" # Verde
+
+                styles = [""] * len(row)
+                idx_tot = list(row.index).index("TOTAL")
+                styles[idx_tot] = style_tot
+                return styles
+
+            # Exportador Excel Sábana
+            def export_clearing_excel(pivot_df: pd.DataFrame, bancos_list: list[str]) -> bytes:
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Camaras"
+
+                ws["A1"] = "CÁMARAS COMPENSADORAS — CHEQUES EMITIDOS"
+                ws["A1"].font = Font(size=13, bold=True, color="1F4E78")
+                ws["A2"] = f"Generado el: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                ws["A2"].font = Font(size=9, italic=True, color="666666")
+
+                headers = ["FECHA"] + bancos_list + ["TOTAL"]
+                h_row = 4
+                for c_idx, h in enumerate(headers, 1):
+                    cell = ws.cell(row=h_row, column=c_idx, value=h)
+                    cell.font = Font(bold=True, color="FFFFFF")
+                    cell.fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+
+                for r_idx, (_, r) in enumerate(pivot_df.iterrows()):
+                    row_num = h_row + 1 + r_idx
+                    ws.cell(row=row_num, column=1, value=r["FECHA_LABEL"]).alignment = Alignment(horizontal="center")
+                    for b_idx, b in enumerate(bancos_list, 2):
+                        v = float(r.get(b, 0.0))
+                        cell_b = ws.cell(row=row_num, column=b_idx, value=v if v > 0 else "")
+                        if v > 0:
+                            cell_b.number_format = "$ #,##0"
+
+                    # Celda total con semáforo
+                    tot_v = float(r["TOTAL"])
+                    cell_t = ws.cell(row=row_num, column=len(headers), value=tot_v)
+                    cell_t.font = Font(bold=True)
+                    cell_t.number_format = "$ #,##0"
+
+                    if tot_v > u_naranja:
+                        cell_t.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+                    elif tot_v > u_amarillo:
+                        cell_t.fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+
+                for col in ws.columns:
+                    max_len = max(len(str(cell.value or "")) for cell in col)
+                    col_letter = get_column_letter(col[0].column)
+                    ws.column_dimensions[col_letter].width = max(max_len + 3, 14)
+
+                buf = BytesIO()
+                wb.save(buf)
+                return buf.getvalue()
+
+            # Exportador PDF Sábana
+            def export_clearing_pdf(pivot_df: pd.DataFrame, bancos_list: list[str]) -> bytes:
+                buf = BytesIO()
+                doc = SimpleDocTemplate(buf, pagesize=landscape(A4), rightMargin=20, leftMargin=20, topMargin=25, bottomMargin=25)
+                styles = getSampleStyleSheet()
+                story = []
+
+                title_style = ParagraphStyle('ClrTitle', parent=styles['Heading1'], fontSize=13, textColor=colors.HexColor('#1F4E78'), spaceAfter=4)
+                sub_style = ParagraphStyle('ClrSub', parent=styles['Normal'], fontSize=8.5, textColor=colors.HexColor('#555555'), spaceAfter=10)
+
+                story.append(Paragraph("<b>FOR DRINK SA — SÁBANA DE CÁMARAS COMPENSADORAS</b>", title_style))
+                story.append(Paragraph(f"Emisión: {dt.datetime.now().strftime('%d/%m/%Y %H:%M')} | Valores pendientes", sub_style))
+
+                headers = ["FECHA"] + bancos_list + ["TOTAL"]
+                table_data = [headers]
+
+                for _, r in pivot_df.iterrows():
+                    row_vals = [r["FECHA_LABEL"]]
+                    for b in bancos_list:
+                        v = float(r.get(b, 0.0))
+                        row_vals.append(fmt_ars(v) if v > 0 else "")
+                    row_vals.append(fmt_ars(r["TOTAL"]))
+                    table_data.append(row_vals)
+
+                col_w = max(42, int(780 / len(headers)))
+                t = Table(table_data, colWidths=[col_w] * len(headers))
+                t.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7.5),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#DDDDDD')),
+                    ('FONTSIZE', (0, 1), (-1, -1), 7),
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ]))
+                story.append(t)
+                doc.build(story)
+                return buf.getvalue()
+
+            with col_desc_ch:
+                st.download_button(
+                    "📥 Descargar Sábana en Excel",
+                    export_clearing_excel(matriz_ch, bancos_activos),
+                    f"Clearing_{dt.date.today().strftime('%Y%m%d')}.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+            with col_desc_pdf:
+                st.download_button(
+                    "📄 Descargar Sábana en PDF",
+                    export_clearing_pdf(matriz_ch, bancos_activos),
+                    f"Clearing_{dt.date.today().strftime('%Y%m%d')}.pdf",
+                    "application/pdf",
+                    use_container_width=True,
+                )
+
+            # Presentación visual con formato '02-NOV'
+            view_matriz = matriz_ch.rename(columns={"FECHA_LABEL": "FECHA"}).drop(columns=["Fecha Pago"])
+            format_dict = {b: lambda v: fmt_ars(v) if v > 0 else "" for b in bancos_activos}
+            format_dict["TOTAL"] = fmt_ars
+
+            st.dataframe(
+                view_matriz.style.apply(style_clearing, axis=1).format(format_dict),
+                use_container_width=True,
+                height=560,
+                hide_index=True,
+            )
+
+    # -----------------------------------------------------------------------
+    # TAB B: Calendario Visual
+    # -----------------------------------------------------------------------
+    with tab_cal:
+        st.subheader("📅 Calendario Visual de Clearing")
+        col_cal_m, col_cal_y = st.columns([1, 1])
+        mes_cal_sel = col_cal_m.selectbox("Mes", list(core.MESES_ES.values()), index=dt.date.today().month - 1)
+        ano_cal_sel = col_cal_y.number_input("Año", min_value=2024, max_value=2030, value=dt.date.today().year)
+
+        num_mes_sel = [k for k, v in core.MESES_ES.items() if v == mes_cal_sel][0]
+
+        # Días del mes
+        cal = calendar.monthcalendar(ano_cal_sel, num_mes_sel)
+        dias_nombres = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+        c_cols = st.columns(7)
+        for i, nom_d in enumerate(dias_nombres):
+            c_cols[i].markdown(f"<div style='text-align:center; font-weight:bold; color:#94a3b8; padding-bottom:6px;'>{nom_d}</div>", unsafe_allow_html=True)
+
+        for week in cal:
+            w_cols = st.columns(7)
+            for d_idx, day in enumerate(week):
+                with w_cols[d_idx]:
+                    if day == 0:
+                        st.markdown("<div style='min-height:95px;'></div>", unsafe_allow_html=True)
+                    else:
+                        fecha_d = dt.date(ano_cal_sel, num_mes_sel, day)
+                        df_dia = df_ch[df_ch["Fecha Pago"].dt.date == fecha_d]
+                        tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
+
+                        es_feriado = fecha_d in st.session_state.get("feriados", [])
+                        lbl_feriado = " <span style='color:#f59e0b;'>(Feriado)</span>" if es_feriado else ""
+
+                        # Renderizado del día
+                        items_bancos = ""
+                        if not df_dia.empty:
+                            por_banco = df_dia.groupby("Banco")["Importe"].sum()
+                            for b, m in por_banco.items():
+                                items_bancos += f"<div style='font-size:10px; color:#cbd5e1;'>• {b}: <b>{fmt_ars(m)}</b></div>"
+
+                        tot_str = f"<div style='font-size:11.5px; font-weight:800; color:{'#ef4444' if tot_dia > 0 else '#64748b'}; margin-top:4px;'>Total: {fmt_ars(tot_dia)}</div>" if tot_dia > 0 else ""
+
+                        st.markdown(
+                            f"""
+                            <div class='cal-day-box'>
+                                <div class='cal-day-header'>
+                                    <span>{day:02d}</span>{lbl_feriado}
+                                </div>
+                                {items_bancos}
+                                {tot_str}
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+    # -----------------------------------------------------------------------
+    # TAB C: Carga de Cheques Emitidos
+    # -----------------------------------------------------------------------
+    with tab_carga_ch:
+        st.subheader("➕ Cargar Nuevos Cheques Emitidos")
+        st.caption("Los cheques cargados completan todas las columnas de calendario y se sincronizan directamente con Google Sheets.")
+
+        if "cheque_guardado_msj" in st.session_state:
+            st.success(st.session_state.cheque_guardado_msj, icon="✅")
+            del st.session_state["cheque_guardado_msj"]
+
+        modo_carga_ch = st.radio(
+            "Modalidad de carga:",
+            ["📋 Pegar desde Excel (Masivo)", "✍️ Carga individual"],
+            horizontal=True,
+            key="modo_carga_ch_radio",
+        )
+
+        bancos_predefinidos = ["BBVA", "BNA", "GALICIA", "MACRO", "PROVINCIA", "SANTANDER", "SUPERVIELLE"]
+
+        if modo_carga_ch == "📋 Pegar desde Excel (Masivo)":
+            st.caption("Copiá desde tu Excel las columnas en este orden: `Banco` | `Fecha Emisión` | `Fecha Pago` | `Nro. Cheque` | `Importe` | `Beneficiario`")
+            txt_ch_excel = st.text_area(
+                "Pegar celdas copiadas",
+                placeholder="GALICIA\t07/08/2026\t01/09/2026\t1264\t1500000\tADITIVOS ALIMENTARIOS SRL\nSANTANDER\t11/08/2026\t11/09/2026\t2140\t2500000\tLOS PROFESIONALES SA",
+                height=130,
+                key="txt_ch_excel_input",
+            )
+
+            if st.button("📥 Procesar y Guardar Cheques en Google Sheets", type="primary"):
+                if not txt_ch_excel.strip():
+                    st.warning("El campo de texto está vacío.")
+                else:
+                    lines = [l.strip() for l in txt_ch_excel.strip().split("\n") if l.strip()]
+                    nuevos_cheques = []
+                    for line in lines:
+                        p = re.split(r"[\t;|]+", line)
+                        if len(p) >= 5:
+                            b_val = p[0].strip().upper()
+                            fe_val = pd.to_datetime(p[1].strip(), dayfirst=True, errors="coerce")
+                            fp_val = pd.to_datetime(p[2].strip(), dayfirst=True, errors="coerce")
+                            nro_val = p[3].strip()
+                            imp_raw = p[4].strip().replace("$", "").replace(" ", "").replace(".", "").replace(",", ".")
+                            imp_val = float(imp_raw) if imp_raw else 0.0
+                            benef_val = p[5].strip() if len(p) > 5 else ""
+
+                            if pd.notna(fp_val) and imp_val > 0:
+                                nuevos_cheques.append({
+                                    "Banco": b_val,
+                                    "EMPRESA": "FD",
+                                    "Cuenta Libradora": "",
+                                    "Fecha Emisión": fe_val if pd.notna(fe_val) else fp_val,
+                                    "Fecha Pago": fp_val,
+                                    "Nro. de Cheque": nro_val,
+                                    "Importe": imp_val,
+                                    "CUIT Beneficiario": "",
+                                    "Razón Social Beneficiario": benef_val,
+                                })
+
+                    if nuevos_cheques:
+                        df_nuevos = pd.DataFrame(nuevos_cheques)
+                        df_act = pd.concat([get_cheques(), df_nuevos], ignore_index=True)
+                        if save_cheques_source(df_act):
+                            st.session_state.df_cheques = core.normalize_cheques_df(df_act)
+                            st.session_state.cheque_guardado_msj = f"¡Se guardaron exitosamente {len(nuevos_cheques)} cheques en la base de datos!"
+                            st.rerun()
+                    else:
+                        st.error("No se pudieron interpretar las filas pegadas. Revisá las columnas.")
+        else:
+            with st.form("form_nuevo_cheque"):
+                c_ch1, c_ch2, c_ch3 = st.columns(3)
+                with c_ch1:
+                    ch_banco = st.selectbox("Banco Emisor", bancos_predefinidos)
+                    ch_empresa = st.text_input("Empresa", value="FD")
+                    ch_cuenta = st.text_input("Cuenta Libradora", placeholder="Ej: 16603")
+                with c_ch2:
+                    ch_fe = st.date_input("Fecha Emisión", value=dt.date.today())
+                    ch_fp = st.date_input("Fecha Pago", value=dt.date.today() + dt.timedelta(days=7))
+                    ch_nro = st.text_input("Nro. de Cheque", placeholder="Ej: 1264")
+                with c_ch3:
+                    ch_imp = st.number_input("Importe en $ ARS", min_value=1.0, step=50000.0, format="%.2f")
+                    ch_cuit_b = st.text_input("CUIT Beneficiario", placeholder="Opcional")
+                    ch_razon_b = st.text_input("Razón Social Beneficiario", placeholder="Ej: HAASEN SA")
+
+                if st.form_submit_button("💾 Guardar Cheque", type="primary", use_container_width=True):
+                    nuevo_ch_row = pd.DataFrame([{
+                        "Banco": ch_banco,
+                        "EMPRESA": ch_empresa,
+                        "Cuenta Libradora": ch_cuenta,
+                        "Fecha Emisión": pd.Timestamp(ch_fe),
+                        "Fecha Pago": pd.Timestamp(ch_fp),
+                        "Nro. de Cheque": ch_nro,
+                        "Importe": float(ch_imp),
+                        "CUIT Beneficiario": ch_cuit_b,
+                        "Razón Social Beneficiario": ch_razon_b,
+                    }])
+                    df_act = pd.concat([get_cheques(), nuevo_ch_row], ignore_index=True)
+                    if save_cheques_source(df_act):
+                        st.session_state.df_cheques = core.normalize_cheques_df(df_act)
+                        st.session_state.cheque_guardado_msj = f"¡Cheque N° {ch_nro} guardado exitosamente en la base de datos!"
+                        st.rerun()
+
+# ===========================================================================
+# MÓDULO 3: ANALIZADOR DE LIBRADORES · BCRA (NATIVO STREAMLIT DARK)
 # ===========================================================================
 elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
     col_t_bcra, col_btns_bcra = st.columns([3, 1.2])
@@ -1115,7 +1534,6 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
     n_warn = len([x for x in data_bcra if x["risk"] == "warn"])
     n_bad = len([x for x in data_bcra if x["risk"] == "bad"])
 
-    # Tarjetas de Resumen
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Libradores Evaluados</div><div class='bcra-val-dark' style='color:#f8fafc;'>{n_tot}</div></div>", unsafe_allow_html=True)
