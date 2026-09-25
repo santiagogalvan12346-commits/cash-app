@@ -4,7 +4,7 @@ Suite Financiera — For Drink SA
 ====================================================================
 Módulos:
 1. 💵 Gestión de Tesorería (Planes de Pago y Escaleras ARS)
-2. 🏦 Clearing / Cheques Emitidos (Cámaras, Calendario Interactivo y Anulaciones)
+2. 🏦 Clearing / Cheques Emitidos (Cámaras, Calendario y Anulaciones)
 3. 🔍 Analizador de Libradores · BCRA (Scoring Nativo)
 """
 
@@ -41,7 +41,7 @@ import core
 importlib.reload(core)
 
 # ---------------------------------------------------------------------------
-# Configuración general y Estética Executive Fintech Minimalist
+# Configuración general y estilos
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
@@ -60,21 +60,12 @@ st.markdown(
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    /* Fondo principal Deep Slate Fintech */
-    .stApp {
-        background-color: #0b0f17 !important;
-    }
-
-    /* Tipografía técnica tabular para números y dinero */
-    [data-testid="stMetricValue"], .bcra-val-dark {
-        font-family: 'JetBrains Mono', monospace !important;
-        font-feature-settings: "tnum" on, "zero" on !important;
-        letter-spacing: -0.02em !important;
-    }
     [data-testid="stMetricValue"] {
+        font-family: 'JetBrains Mono', monospace !important;
         font-size: 1.45rem !important;
         font-weight: 700 !important;
         color: #f8fafc !important;
+        white-space: nowrap !important;
     }
     [data-testid="stMetricLabel"] {
         font-size: 0.8rem !important;
@@ -84,7 +75,6 @@ st.markdown(
         color: #94a3b8 !important;
     }
 
-    /* Títulos sobrios y ejecutivos */
     h1 {
         font-size: 1.65rem !important;
         font-weight: 700 !important;
@@ -99,70 +89,45 @@ st.markdown(
         color: #e2e8f0 !important;
     }
 
-    /* Botones Minimalist Ghost / Slate */
-    div.stButton > button:first-child {
-        background: #111827 !important;
-        color: #f1f5f9 !important;
-        border: 1px solid #1e293b !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        transition: all 0.15s ease-in-out !important;
+    /* Tarjetas del Calendario Original */
+    .cal-day-box {
+        background: #18202a;
+        border: 1px solid #2d3748;
+        border-radius: 8px;
+        padding: 8px 10px;
+        min-height: 96px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
-    div.stButton > button:first-child:hover {
-        background: #17253d !important;
-        border-color: #38bdf8 !important;
-        color: #ffffff !important;
+    .cal-day-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        font-weight: 700;
+        color: #94a3b8;
     }
-    div.stDownloadButton > button:first-child {
-        background: #1e293b !important;
-        color: #f1f5f9 !important;
-        border: 1px solid #334155 !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-    }
-    div.stDownloadButton > button:first-child:hover {
-        background: #0284c7 !important;
-        border-color: #38bdf8 !important;
-        color: #ffffff !important;
-    }
-
-    /* Tarjetas del Calendario: la tarjeta completa es el botón */
-    div[data-testid="column"] div.stButton > button {
-        height: 104px !important;
-        white-space: pre-line !important;
-        line-height: 1.25 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
-        align-items: flex-start !important;
-        padding: 8px 6px !important;
-        text-align: left !important;
-        border-radius: 8px !important;
-        background: #111827 !important;
-        border: 1px solid #1e293b !important;
-    }
-    div[data-testid="column"] div.stButton > button:hover {
-        border-color: #38bdf8 !important;
-        background: #172236 !important;
-        transform: translateY(-1px);
-    }
-    div[data-testid="column"] div.stButton > button:disabled {
-        background: #0b0f17 !important;
-        border-color: #162030 !important;
-        opacity: 0.45 !important;
-        transform: none !important;
-    }
-    div[data-testid="column"] div.stButton > button p {
+    .cal-day-total {
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 11px !important;
-        width: 100% !important;
-        text-align: left !important;
-        white-space: pre-line !important;
-        overflow: hidden !important;
-        margin: 0 !important;
+        font-size: 13px;
+        font-weight: 800;
+        color: #38bdf8;
+        margin-top: 4px;
+    }
+    .cal-details-summary {
+        font-size: 10px;
+        color: #94a3b8;
+        cursor: pointer;
+        outline: none;
+        user-select: none;
+        margin-top: 4px;
+    }
+    .cal-details-summary:hover {
+        color: #38bdf8;
     }
 
-    /* Badges de bancos minimalistas */
+    /* Badges de bancos */
     .bank-pill {
         display: inline-flex;
         align-items: center;
@@ -171,7 +136,6 @@ st.markdown(
         border-radius: 9999px;
         font-size: 11.5px;
         font-weight: 600;
-        letter-spacing: 0.01em;
         margin-right: 6px;
         margin-bottom: 6px;
     }
@@ -182,43 +146,44 @@ st.markdown(
         display: inline-block;
     }
 
-    /* Tarjetas BCRA Dark */
+    /* Tarjetas BCRA */
     .bcra-card-dark {
-        background: #111827;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 14px 18px;
+        background: #18202a;
+        border: 1px solid #2d3748;
+        border-radius: 12px;
+        padding: 16px 20px;
     }
     .bcra-label-dark {
         font-size: 11px;
         text-transform: uppercase;
-        font-weight: 600;
+        font-weight: 700;
         letter-spacing: 0.05em;
         color: #94a3b8;
     }
     .bcra-val-dark {
+        font-family: 'JetBrains Mono', monospace !important;
         font-size: 26px;
-        font-weight: 700;
-        margin-top: 3px;
+        font-weight: 800;
+        margin-top: 4px;
         line-height: 1.1;
     }
     .bcra-table-box {
-        background: #111827;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
+        background: #18202a;
+        border: 1px solid #2d3748;
+        border-radius: 12px;
         padding: 6px 12px;
     }
     .bcra-drawer-box {
-        background: #111827;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 16px 18px;
+        background: #18202a;
+        border: 1px solid #2d3748;
+        border-radius: 12px;
+        padding: 18px 20px;
     }
     .kpi-mini-box {
-        background: #182234;
-        border: 1px solid #23324d;
-        border-radius: 6px;
-        padding: 8px 10px;
+        background: #1e2634;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 10px 12px;
     }
     </style>
     """,
@@ -356,7 +321,6 @@ def fmt_ars(value: float) -> str:
         return "$ 0"
 
 
-# Paleta e isotipos de entidades bancarias
 BANK_THEMES = {
     "GALICIA": {"color": "#ff7a00", "bg": "rgba(255, 122, 0, 0.12)", "border": "rgba(255, 122, 0, 0.35)", "label": "Galicia"},
     "MACRO": {"color": "#0284c7", "bg": "rgba(2, 132, 199, 0.12)", "border": "rgba(2, 132, 199, 0.35)", "label": "Macro"},
@@ -1054,7 +1018,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     st.title("Clearing Bancario — Cheques Emitidos")
     st.caption("Seguimiento diario de cámaras compensadoras · For Drink SA")
 
-    # KPIs superiores proyectados estrictamente de HOY en adelante (excluyendo fechas pasadas)
+    # KPIs superiores proyectados estrictamente desde HOY en adelante
     kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []), solo_desde_hoy=True)
 
     meses_con_promedios = list(kpis_ch["promedios_mensuales"].keys())
@@ -1082,13 +1046,11 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     if kpis_ch.get("bancos_distribucion"):
         dist = kpis_ch["bancos_distribucion"]
         
-        # Barra segmentada continua estilo Apple/macOS
         seg_html = "".join([
             f"<div style='flex: {info['pct']:.2f}; background-color: {BANK_THEMES.get(b, {}).get('color', '#3b82f6')}; height: 6px; border-radius: 2px;' title='{b}: {info['pct']:.1f}%'></div>"
             for b, info in dist.items()
         ])
         
-        # Píldoras con isotipo/color heráldico
         pills_html = "".join([
             f"""<div class='bank-pill' style='background:{BANK_THEMES.get(b, {}).get('bg', '#1e293b')}; border:1px solid {BANK_THEMES.get(b, {}).get('border', '#334155')}; color:#f8fafc;'>
                 <span class='bank-dot' style='background-color:{BANK_THEMES.get(b, {}).get('color', '#38bdf8')};'></span>
@@ -1110,43 +1072,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             """,
             unsafe_allow_html=True,
         )
-
-    # -----------------------------------------------------------------------
-    # MODAL NATIVO: Detalle de Vencimientos por Día (@st.dialog)
-    # -----------------------------------------------------------------------
-    if hasattr(st, "dialog"):
-        @st.dialog("Detalle de Vencimientos del Día")
-        def abrir_modal_dia(fecha_sel: dt.date, df_dia: pd.DataFrame):
-            dia_nom = core.DIAS_ES.get(fecha_sel.weekday(), "").capitalize()
-            st.markdown(f"### 📅 {dia_nom} {fecha_sel.strftime('%d/%m/%Y')}")
-            
-            tot_d = df_dia["Importe"].sum()
-            st.markdown(f"<div style='font-size:24px; font-weight:800; color:#38bdf8; margin-bottom:12px;'>Total a cubrir: {fmt_ars(tot_d)}</div>", unsafe_allow_html=True)
-            
-            st.markdown("##### Desglose por Banco Emisor")
-            banco_grp = df_dia.groupby("Banco")["Importe"].agg(["sum", "count"]).reset_index()
-            banco_grp["pct"] = (banco_grp["sum"] / tot_d) * 100
-
-            for _, r in banco_grp.iterrows():
-                b_nom = r["Banco"]
-                theme = BANK_THEMES.get(b_nom, {"color": "#38bdf8", "bg": "#1e293b", "border": "#334155"})
-                c_b1, c_b2, c_b3 = st.columns([2, 2, 1])
-                c_b1.markdown(f"<span class='bank-dot' style='background:{theme['color']};'></span> **{b_nom}** ({r['count']} ch.)", unsafe_allow_html=True)
-                c_b2.markdown(f"**{fmt_ars(r['sum'])}**")
-                c_b3.markdown(f"`{r['pct']:.1f}%`")
-
-            st.divider()
-            st.markdown("##### Cheques individuales involucrados")
-            cols_ver = ["Nro. de Cheque", "Banco", "Importe", "Razón Social Beneficiario"]
-            sub_tabla = df_dia[[c for c in cols_ver if c in df_dia.columns]].copy()
-            st.dataframe(
-                sub_tabla.style.format({"Importe": fmt_ars}),
-                use_container_width=True,
-                hide_index=True
-            )
-    else:
-        def abrir_modal_dia(fecha_sel, df_dia):
-            st.toast(f"Día {fecha_sel.strftime('%d/%m')}: {fmt_ars(df_dia['Importe'].sum())}")
 
     tab_sabana, tab_cal, tab_carga_ch, tab_bajas = st.tabs([
         "🗓️ Sábana de Cámaras (Flujo Diario)",
@@ -1363,7 +1288,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             )
 
     # -----------------------------------------------------------------------
-    # TAB B: Calendario Visual Interactivo (La Tarjeta Completa es el Botón)
+    # TAB B: Calendario Visual Clásico y Estable (Sin Deformaciones)
     # -----------------------------------------------------------------------
     with tab_cal:
         col_cal_m, col_cal_y = st.columns([1, 1])
@@ -1376,7 +1301,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
         c_cols = st.columns(7)
         for i, nom_d in enumerate(dias_nombres):
-            c_cols[i].markdown(f"<div style='text-align:center; font-weight:600; font-size:12px; color:#94a3b8; padding-bottom:8px;'>{nom_d}</div>", unsafe_allow_html=True)
+            c_cols[i].markdown(f"<div style='text-align:center; font-weight:700; font-size:12px; color:#94a3b8; padding-bottom:6px;'>{nom_d}</div>", unsafe_allow_html=True)
 
         df_activos_cal = df_ch[df_ch.get("Estado", "Emitido").astype(str).str.lower() != "anulado"]
 
@@ -1385,27 +1310,48 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             for d_idx, day in enumerate(week):
                 with w_cols[d_idx]:
                     if day == 0:
-                        st.markdown("<div style='min-height:104px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height:96px;'></div>", unsafe_allow_html=True)
                     else:
                         fecha_d = dt.date(ano_cal_sel, num_mes_sel, day)
                         df_dia = df_activos_cal[df_activos_cal["Fecha Pago"].dt.date == fecha_d]
                         tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
 
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
-                        tag_feriado = " (Feriado)" if es_feriado else ""
+                        lbl_feriado = " <span style='color:#f59e0b; font-size:10px;'>(Feriado)</span>" if es_feriado else ""
 
                         if tot_dia > 0:
-                            # Bancos presentes para la micro-etiqueta inferior
-                            bancos_dia = df_dia["Banco"].dropna().unique().tolist()
-                            indicador_bancos = " ".join([f"●{str(b)[:4]}" for b in bancos_dia[:3]])
+                            items_bancos = ""
+                            por_banco = df_dia.groupby("Banco")["Importe"].sum()
+                            for b, m in por_banco.items():
+                                items_bancos += f"<div style='font-size:10px; color:#cbd5e1; margin-bottom:2px;'>• {b}: <b>{fmt_ars(m)}</b></div>"
 
-                            # Cifra financiera completa en una sola línea ajustada
-                            label_btn = f"{day:02d}{tag_feriado}\n\n{fmt_ars(tot_dia)}\n{indicador_bancos}"
-                            if st.button(label_btn, key=f"btn_d_{fecha_d}", use_container_width=True):
-                                abrir_modal_dia(fecha_d, df_dia)
+                            tot_html = f"<div class='cal-day-total'>{fmt_ars(tot_dia)}</div>"
+                            details_html = f"""
+                            <details style="margin-top:4px;">
+                                <summary class="cal-details-summary">▾ Ver detalle</summary>
+                                <div style="margin-top:4px; padding-top:4px; border-top:1px solid #334155;">
+                                    {items_bancos}
+                                </div>
+                            </details>
+                            """
                         else:
-                            # Día limpio sin vencimientos
-                            st.button(f"{day:02d}{tag_feriado}\n\n—\n", key=f"btn_d_{fecha_d}", disabled=True, use_container_width=True)
+                            tot_html = "<div style='font-size:11px; color:#64748b; margin-top:6px;'>Sin vencimientos</div>"
+                            details_html = ""
+
+                        st.markdown(
+                            f"""
+                            <div class='cal-day-box'>
+                                <div>
+                                    <div class='cal-day-header'>
+                                        <span>{day:02d}</span>{lbl_feriado}
+                                    </div>
+                                    {tot_html}
+                                </div>
+                                {details_html}
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
 
     # -----------------------------------------------------------------------
     # TAB C: Carga Masiva e Individual (Blindada contra Duplicados y Errores)
