@@ -4,7 +4,7 @@ Suite Financiera — For Drink SA
 ====================================================================
 Módulos:
 1. 💵 Gestión de Tesorería (Planes de Pago y Escaleras ARS)
-2. 🏦 Clearing / Cheques Emitidos (Cámaras, Calendario y Anulaciones)
+2. 🏦 Clearing / Cheques Emitidos (Cámaras, Calendario Interactivo y Anulaciones)
 3. 🔍 Analizador de Libradores · BCRA (Scoring Nativo)
 """
 
@@ -41,7 +41,7 @@ import core
 importlib.reload(core)
 
 # ---------------------------------------------------------------------------
-# Configuración general y estilos
+# Configuración general y Estética Executive Fintech Minimalist
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
@@ -60,12 +60,21 @@ st.markdown(
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    [data-testid="stMetricValue"] {
+    /* Fondo principal Deep Slate Fintech */
+    .stApp {
+        background-color: #0b0f17 !important;
+    }
+
+    /* Tipografía técnica tabular para números y dinero */
+    [data-testid="stMetricValue"], .cal-day-total, .bcra-val-dark {
         font-family: 'JetBrains Mono', monospace !important;
+        font-feature-settings: "tnum" on, "zero" on !important;
+        letter-spacing: -0.02em !important;
+    }
+    [data-testid="stMetricValue"] {
         font-size: 1.45rem !important;
         font-weight: 700 !important;
         color: #f8fafc !important;
-        white-space: nowrap !important;
     }
     [data-testid="stMetricLabel"] {
         font-size: 0.8rem !important;
@@ -75,6 +84,7 @@ st.markdown(
         color: #94a3b8 !important;
     }
 
+    /* Títulos sobrios y ejecutivos */
     h1 {
         font-size: 1.65rem !important;
         font-weight: 700 !important;
@@ -89,45 +99,36 @@ st.markdown(
         color: #e2e8f0 !important;
     }
 
-    /* Tarjetas del Calendario Original */
-    .cal-day-box {
-        background: #18202a;
-        border: 1px solid #2d3748;
-        border-radius: 8px;
-        padding: 8px 10px;
-        min-height: 96px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
+    /* Botones Minimalist Ghost / Slate */
+    div.stButton > button:first-child {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+        border: 1px solid #334155 !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease-in-out !important;
+        font-size: 11px !important;
+        padding: 3px 6px !important;
     }
-    .cal-day-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 12px;
-        font-weight: 700;
-        color: #94a3b8;
+    div.stButton > button:first-child:hover {
+        background: #2563eb !important;
+        border-color: #3b82f6 !important;
+        color: #ffffff !important;
     }
-    .cal-day-total {
-        font-family: 'JetBrains Mono', monospace !important;
-        font-size: 13px;
-        font-weight: 800;
-        color: #38bdf8;
-        margin-top: 4px;
+    div.stDownloadButton > button:first-child {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
     }
-    .cal-details-summary {
-        font-size: 10px;
-        color: #94a3b8;
-        cursor: pointer;
-        outline: none;
-        user-select: none;
-        margin-top: 4px;
-    }
-    .cal-details-summary:hover {
-        color: #38bdf8;
+    div.stDownloadButton > button:first-child:hover {
+        background: #0284c7 !important;
+        border-color: #38bdf8 !important;
+        color: #ffffff !important;
     }
 
-    /* Badges de bancos */
+    /* Badges de bancos minimalistas */
     .bank-pill {
         display: inline-flex;
         align-items: center;
@@ -136,6 +137,7 @@ st.markdown(
         border-radius: 9999px;
         font-size: 11.5px;
         font-weight: 600;
+        letter-spacing: 0.01em;
         margin-right: 6px;
         margin-bottom: 6px;
     }
@@ -146,44 +148,43 @@ st.markdown(
         display: inline-block;
     }
 
-    /* Tarjetas BCRA */
+    /* Tarjetas BCRA Dark */
     .bcra-card-dark {
-        background: #18202a;
-        border: 1px solid #2d3748;
-        border-radius: 12px;
-        padding: 16px 20px;
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 14px 18px;
     }
     .bcra-label-dark {
         font-size: 11px;
         text-transform: uppercase;
-        font-weight: 700;
+        font-weight: 600;
         letter-spacing: 0.05em;
         color: #94a3b8;
     }
     .bcra-val-dark {
-        font-family: 'JetBrains Mono', monospace !important;
         font-size: 26px;
-        font-weight: 800;
-        margin-top: 4px;
+        font-weight: 700;
+        margin-top: 3px;
         line-height: 1.1;
     }
     .bcra-table-box {
-        background: #18202a;
-        border: 1px solid #2d3748;
-        border-radius: 12px;
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
         padding: 6px 12px;
     }
     .bcra-drawer-box {
-        background: #18202a;
-        border: 1px solid #2d3748;
-        border-radius: 12px;
-        padding: 18px 20px;
+        background: #111827;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 16px 18px;
     }
     .kpi-mini-box {
-        background: #1e2634;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 10px 12px;
+        background: #182234;
+        border: 1px solid #23324d;
+        border-radius: 6px;
+        padding: 8px 10px;
     }
     </style>
     """,
@@ -321,6 +322,7 @@ def fmt_ars(value: float) -> str:
         return "$ 0"
 
 
+# Paleta e isotipos de entidades bancarias
 BANK_THEMES = {
     "GALICIA": {"color": "#ff7a00", "bg": "rgba(255, 122, 0, 0.12)", "border": "rgba(255, 122, 0, 0.35)", "label": "Galicia"},
     "MACRO": {"color": "#0284c7", "bg": "rgba(2, 132, 199, 0.12)", "border": "rgba(2, 132, 199, 0.35)", "label": "Macro"},
@@ -1018,29 +1020,13 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     st.title("Clearing Bancario — Cheques Emitidos")
     st.caption("Seguimiento diario de cámaras compensadoras · For Drink SA")
 
-    # KPIs superiores proyectados estrictamente desde HOY en adelante
-    kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []), solo_desde_hoy=True)
-
-    meses_con_promedios = list(kpis_ch["promedios_mensuales"].keys())
-    mes_actual_str = dt.date.today().strftime("%Y-%m")
-    mes_kpi_default = mes_actual_str if mes_actual_str in meses_con_promedios else (meses_con_promedios[0] if meses_con_promedios else "")
-
-    c1, c2, c3 = st.columns([1.3, 1.2, 1.5])
-    c1.metric("Total a Cubrir", fmt_ars(kpis_ch["total_comprometido"]), help="Valores activos pendientes desde hoy en adelante.")
-    c2.metric("Cheques en Circulación", f"{kpis_ch['cant_cheques']} valores", help="Cantidad de cheques con vencimiento desde hoy.")
-
-    with c3:
-        if meses_con_promedios:
-            c3_sel, c3_val = st.columns([1, 1.2])
-            with c3_sel:
-                mes_prom_sel = st.selectbox("Promedio de:", meses_con_promedios, index=meses_con_promedios.index(mes_kpi_default) if mes_kpi_default in meses_con_promedios else 0, label_visibility="collapsed")
-            info_m = kpis_ch["promedios_mensuales"].get(mes_prom_sel, {})
-            prom_val = info_m.get("promedio_diario", 0.0)
-            dh_val = info_m.get("dias_habiles", 0)
-            with c3_val:
-                st.metric("Promedio Hábil Mes", fmt_ars(prom_val), help=f"Calculado sobre {dh_val} días hábiles con cheques en {mes_prom_sel}.")
-        else:
-            st.metric("Promedio Hábil Mes", "$ 0")
+    # KPIs superiores
+    kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []))
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total en Cheques", fmt_ars(kpis_ch["total_comprometido"]))
+    c2.metric("Cheques Emitidos", f"{kpis_ch['cant_cheques']} valores")
+    c3.metric("Promedio Diario Hábil", fmt_ars(kpis_ch["promedio_diario"]), help="Excluye feriados bancarios y fines de semana.")
+    c4.metric("Pico Máximo Diario", fmt_ars(kpis_ch["pico_maximo"]))
 
     # Micro-Badges y Barra Continua de Concentración Bancaria
     if kpis_ch.get("bancos_distribucion"):
@@ -1072,6 +1058,43 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             """,
             unsafe_allow_html=True,
         )
+
+    # -----------------------------------------------------------------------
+    # MODAL NATIVO: Detalle de Vencimientos por Día (@st.dialog)
+    # -----------------------------------------------------------------------
+    if hasattr(st, "dialog"):
+        @st.dialog("Detalle de Vencimientos del Día")
+        def abrir_modal_dia(fecha_sel: dt.date, df_dia: pd.DataFrame):
+            dia_nom = core.DIAS_ES.get(fecha_sel.weekday(), "").capitalize()
+            st.markdown(f"### 📅 {dia_nom} {fecha_sel.strftime('%d/%m/%Y')}")
+            
+            tot_d = df_dia["Importe"].sum()
+            st.markdown(f"<div style='font-size:24px; font-weight:800; color:#38bdf8; margin-bottom:12px;'>Total a cubrir: {fmt_ars(tot_d)}</div>", unsafe_allow_html=True)
+            
+            st.markdown("##### Desglose por Banco Emisor")
+            banco_grp = df_dia.groupby("Banco")["Importe"].agg(["sum", "count"]).reset_index()
+            banco_grp["pct"] = (banco_grp["sum"] / tot_d) * 100
+
+            for _, r in banco_grp.iterrows():
+                b_nom = r["Banco"]
+                theme = BANK_THEMES.get(b_nom, {"color": "#38bdf8", "bg": "#1e293b", "border": "#334155"})
+                c_b1, c_b2, c_b3 = st.columns([2, 2, 1])
+                c_b1.markdown(f"<span class='bank-dot' style='background:{theme['color']};'></span> **{b_nom}** ({r['count']} ch.)", unsafe_allow_html=True)
+                c_b2.markdown(f"**{fmt_ars(r['sum'])}**")
+                c_b3.markdown(f"`{r['pct']:.1f}%`")
+
+            st.divider()
+            st.markdown("##### Cheques individuales involucrados")
+            cols_ver = ["Nro. de Cheque", "Banco", "Importe", "Razón Social Beneficiario"]
+            sub_tabla = df_dia[[c for c in cols_ver if c in df_dia.columns]].copy()
+            st.dataframe(
+                sub_tabla.style.format({"Importe": fmt_ars}),
+                use_container_width=True,
+                hide_index=True
+            )
+    else:
+        def abrir_modal_dia(fecha_sel, df_dia):
+            st.toast(f"Día {fecha_sel.strftime('%d/%m')}: {fmt_ars(df_dia['Importe'].sum())}")
 
     tab_sabana, tab_cal, tab_carga_ch, tab_bajas = st.tabs([
         "🗓️ Sábana de Cámaras (Flujo Diario)",
@@ -1288,7 +1311,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             )
 
     # -----------------------------------------------------------------------
-    # TAB B: Calendario Visual Clásico y Estable (Sin Deformaciones)
+    # TAB B: Calendario Visual Interactivo (Modal con Botones)
     # -----------------------------------------------------------------------
     with tab_cal:
         col_cal_m, col_cal_y = st.columns([1, 1])
@@ -1301,7 +1324,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
         c_cols = st.columns(7)
         for i, nom_d in enumerate(dias_nombres):
-            c_cols[i].markdown(f"<div style='text-align:center; font-weight:700; font-size:12px; color:#94a3b8; padding-bottom:6px;'>{nom_d}</div>", unsafe_allow_html=True)
+            c_cols[i].markdown(f"<div style='text-align:center; font-weight:600; font-size:12px; color:#94a3b8; padding-bottom:8px;'>{nom_d}</div>", unsafe_allow_html=True)
 
         df_activos_cal = df_ch[df_ch.get("Estado", "Emitido").astype(str).str.lower() != "anulado"]
 
@@ -1317,41 +1340,42 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                         tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
 
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
-                        lbl_feriado = " <span style='color:#f59e0b; font-size:10px;'>(Feriado)</span>" if es_feriado else ""
+                        lbl_feriado = " <span style='color:#f59e0b; font-size:10px; font-weight:600;'>FERIADO</span>" if es_feriado else ""
 
                         if tot_dia > 0:
-                            items_bancos = ""
-                            por_banco = df_dia.groupby("Banco")["Importe"].sum()
-                            for b, m in por_banco.items():
-                                items_bancos += f"<div style='font-size:10px; color:#cbd5e1; margin-bottom:2px;'>• {b}: <b>{fmt_ars(m)}</b></div>"
+                            bancos_dia = df_dia["Banco"].dropna().unique().tolist()
+                            badges_bancos = "".join([
+                                f"<span style='display:inline-block; font-size:9.5px; padding:1px 5px; border-radius:4px; margin-right:3px; background:{BANK_THEMES.get(b, {}).get('bg', '#1e293b')}; color:{BANK_THEMES.get(b, {}).get('color', '#38bdf8')}; border:1px solid {BANK_THEMES.get(b, {}).get('border', '#334155')}; font-weight:700;'>{str(b)[:4]}</span>"
+                                for b in bancos_dia[:3]
+                            ])
 
-                            tot_html = f"<div class='cal-day-total'>{fmt_ars(tot_dia)}</div>"
-                            details_html = f"""
-                            <details style="margin-top:4px;">
-                                <summary class="cal-details-summary">▾ Ver detalle</summary>
-                                <div style="margin-top:4px; padding-top:4px; border-top:1px solid #334155;">
-                                    {items_bancos}
-                                </div>
-                            </details>
-                            """
-                        else:
-                            tot_html = "<div style='font-size:11px; color:#64748b; margin-top:6px;'>Sin vencimientos</div>"
-                            details_html = ""
-
-                        st.markdown(
-                            f"""
-                            <div class='cal-day-box'>
-                                <div>
-                                    <div class='cal-day-header'>
-                                        <span>{day:02d}</span>{lbl_feriado}
+                            st.markdown(
+                                f"""
+                                <div style="background:#111827; border:1px solid #1e293b; border-top:2px solid #38bdf8; border-radius:8px; padding:6px 8px; min-height:86px; display:flex; flex-direction:column; justify-content:space-between; margin-bottom:4px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">{day:02d}</span>{lbl_feriado}
                                     </div>
-                                    {tot_html}
+                                    <div style="font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:800; color:#38bdf8; margin:4px 0;">
+                                        {fmt_ars(tot_dia)}
+                                    </div>
+                                    <div style="overflow:hidden; white-space:nowrap;">{badges_bancos}</div>
                                 </div>
-                                {details_html}
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                            if st.button("Ver detalle", key=f"btn_d_{fecha_d}", use_container_width=True):
+                                abrir_modal_dia(fecha_d, df_dia)
+                        else:
+                            st.markdown(
+                                f"""
+                                <div style="background:#0b0f17; border:1px solid #182234; border-radius:8px; padding:6px 8px; min-height:86px; display:flex; flex-direction:column; justify-content:space-between; margin-bottom:4px; opacity:0.45;">
+                                    <div style="font-size:11px; font-weight:600; color:#64748b;">{day:02d}{lbl_feriado}</div>
+                                    <div style="font-size:11px; color:#475569;">—</div>
+                                    <div style="height:14px;"></div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
 
     # -----------------------------------------------------------------------
     # TAB C: Carga Masiva e Individual (Blindada contra Duplicados y Errores)
@@ -1392,7 +1416,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                         p = re.split(r"[\t;|]+", line)
                         if len(p) >= 5:
                             b_val = p[0].strip().upper()
-                            # Blindaje: omitir si es la fila de encabezados de Excel
                             if b_val in ("BANCO", "BANK", "ENTIDAD") or "CHEQUE" in str(p[3]).upper():
                                 continue
 
@@ -1400,7 +1423,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                             fp_val = pd.to_datetime(p[2].strip(), dayfirst=True, errors="coerce")
                             nro_val = str(p[3]).strip()
                             
-                            # Conversión numérica protegida contra ValueError
                             imp_raw = str(p[4]).replace("$", "").replace(" ", "").replace(".", "").replace(",", ".").strip()
                             try:
                                 imp_val = float(imp_raw) if imp_raw else 0.0
@@ -1427,7 +1449,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     if not nuevos_cheques:
                         st.error("No se encontraron filas válidas para procesar. Revisá los datos copiados.")
                     else:
-                        # Validación de duplicados
                         df_actual = get_cheques()
                         validos, duplicados = core.check_cheque_duplicates(df_actual, nuevos_cheques)
 
