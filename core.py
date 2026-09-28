@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Funciones centrales y modelos de datos — Suite Financiera (For Drink SA)
+Estilo: Factory Terminal
 """
 from __future__ import annotations
 
@@ -333,7 +334,7 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
         df["MES_NUM"] = df["Fecha Pago"].dt.month
         df["MES_TXT"] = df["Fecha Pago"].dt.month.map(MESES_ES)
         df["AÑO"] = df["Fecha Pago"].dt.year
-        # Formato de fecha con día hábil en mayúsculas
+        # Prefijo del día hábil en mayúsculas: VIE 25-SEP
         df["FECHA_LABEL"] = df["Fecha Pago"].apply(
             lambda d: f"{DIAS_ABR.get(d.weekday(), '')} {d.day:02d}-{MESES_ABR.get(d.month, '')}" if pd.notna(d) else ""
         )
@@ -410,26 +411,31 @@ def check_cheque_duplicates(df_exist: pd.DataFrame, new_items: list[dict]) -> tu
     return valids, dups
 
 
-def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = None) -> dict:
-    """Calcula métricas globales de clearing con promedio diario hábil y pico máximo."""
+def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = None, solo_desde_hoy: bool = True) -> dict:
+    """Calcula métricas de clearing proyectadas desde hoy en adelante y desglosadas por mes."""
     if df is None or df.empty or "Importe" not in df.columns:
         return {
             "total_comprometido": 0.0,
             "cant_cheques": 0,
-            "dias_habiles": 0,
             "promedio_diario": 0.0,
-            "pico_maximo": 0.0,
+            "promedios_mensuales": {},
             "bancos_distribucion": {},
         }
 
     activos = df[df.get("Estado", "Emitido").astype(str).str.lower() != "anulado"].copy()
+    activos["Fecha_DT"] = pd.to_datetime(activos.get("Fecha Pago"), dayfirst=True, errors="coerce")
+    activos = activos.dropna(subset=["Fecha_DT"])
+
+    if solo_desde_hoy:
+        hoy_d = dt.date.today()
+        activos = activos[activos["Fecha_DT"].dt.date >= hoy_d]
+
     if activos.empty:
         return {
             "total_comprometido": 0.0,
             "cant_cheques": 0,
-            "dias_habiles": 0,
             "promedio_diario": 0.0,
-            "pico_maximo": 0.0,
+            "promedios_mensuales": {},
             "bancos_distribucion": {},
         }
 
@@ -437,27 +443,23 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
     total = float(pd.to_numeric(activos["Importe"], errors="coerce").fillna(0.0).sum())
     cant = len(activos)
 
-    fechas_series = pd.to_datetime(activos.get("Fecha Pago"), dayfirst=True, errors="coerce").dropna()
-    if fechas_series.empty:
-        return {
-            "total_comprometido": total,
-            "cant_cheques": cant,
-            "dias_habiles": 1,
-            "promedio_diario": total,
-            "pico_maximo": total,
-            "bancos_distribucion": {},
+    # Promedio diario hábil por mes y global
+    fechas_unicas = activos["Fecha_DT"].dt.date.unique()
+    dias_habiles_tot = sum(1 for d in fechas_unicas if d.weekday() < 5 and d not in feriados_set)
+    promedio_global = total / (dias_habiles_tot if dias_habiles_tot > 0 else (len(fechas_unicas) if len(fechas_unicas) > 0 else 1))
+
+    promedios_m = {}
+    activos["MES_KEY"] = activos["Fecha_DT"].dt.strftime("%Y-%m")
+    for mes_k, grp in activos.groupby("MES_KEY"):
+        tot_m = grp["Importe"].sum()
+        fechas_u = grp["Fecha_DT"].dt.date.unique()
+        dias_h = sum(1 for d in fechas_u if d.weekday() < 5 and d not in feriados_set)
+        divisor = dias_h if dias_h > 0 else (len(fechas_u) if len(fechas_u) > 0 else 1)
+        promedios_m[mes_k] = {
+            "total": tot_m,
+            "dias_habiles": dias_h,
+            "promedio_diario": tot_m / divisor,
         }
-
-    fechas_unicas = fechas_series.dt.date.unique()
-    dias_habiles = sum(1 for d in fechas_unicas if d.weekday() < 5 and d not in feriados_set)
-    dias_divisor = dias_habiles if dias_habiles > 0 else (len(fechas_unicas) if len(fechas_unicas) > 0 else 1)
-    promedio = total / dias_divisor
-
-    df_temp = pd.DataFrame({
-        "f": fechas_series.dt.date,
-        "m": pd.to_numeric(activos["Importe"], errors="coerce").fillna(0.0)
-    })
-    pico = float(df_temp.groupby("f")["m"].sum().max()) if not df_temp.empty else 0.0
 
     bancos_dist = {}
     if total > 0 and "Banco" in activos.columns:
@@ -468,9 +470,8 @@ def compute_clearing_kpis(df: pd.DataFrame, feriados: list[dt.date] | None = Non
     return {
         "total_comprometido": total,
         "cant_cheques": cant,
-        "dias_habiles": dias_habiles,
-        "promedio_diario": promedio,
-        "pico_maximo": pico,
+        "promedio_diario": promedio_global,
+        "promedios_mensuales": promedios_m,
         "bancos_distribucion": bancos_dist,
     }
 
