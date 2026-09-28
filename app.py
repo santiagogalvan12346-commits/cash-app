@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Suite Financiera — For Drink SA
+Diseño: Factory Terminal War Room (Refero)
 ====================================================================
 Módulos:
 1. 💵 Gestión de Tesorería (Planes de Pago y Escaleras ARS)
@@ -41,7 +42,7 @@ import core
 importlib.reload(core)
 
 # ---------------------------------------------------------------------------
-# Configuración general y Estética Executive Fintech Minimalist
+# Configuración general y Estética Factory Terminal (Refero)
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
@@ -54,136 +55,181 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500;600&display=swap');
+
+    /* Variables Factory Terminal */
+    :root {
+        --color-obsidian-canvas: #101010;
+        --color-carbon-lift: #1d1a18;
+        --color-ash-stroke: #3d3a39;
+        --color-graphite-mid: #4d4947;
+        --color-warm-granite: #8a8380;
+        --color-pale-stone: #b8b3b0;
+        --color-bone: #eeeeee;
+        --color-chalk: #fafafa;
+        --color-signal-orange: #ee6018;
+        --color-metric-green: #a0ca92;
+        --radius-sm: 3px;
+        --radius-cards: 10px;
+    }
 
     html, body, [class*="css"], .stMarkdown {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        letter-spacing: -0.015em;
     }
 
-    /* Fondo principal Deep Slate Fintech */
+    /* Fondo Obsidian Canvas */
     .stApp {
-        background-color: #0b0f17 !important;
+        background-color: var(--color-obsidian-canvas) !important;
     }
 
-    /* Tipografía técnica tabular para números y dinero */
+    /* Tipografía técnica Geist Mono para números y métricas */
     [data-testid="stMetricValue"], .cal-day-total, .bcra-val-dark {
-        font-family: 'JetBrains Mono', monospace !important;
+        font-family: 'Geist Mono', monospace !important;
         font-feature-settings: "tnum" on, "zero" on !important;
-        letter-spacing: -0.02em !important;
+        letter-spacing: -0.03em !important;
     }
     [data-testid="stMetricValue"] {
         font-size: 1.45rem !important;
-        font-weight: 700 !important;
-        color: #f8fafc !important;
+        font-weight: 500 !important;
+        color: var(--color-bone) !important;
     }
     [data-testid="stMetricLabel"] {
-        font-size: 0.8rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #94a3b8 !important;
+        font-family: 'Geist Mono', monospace !important;
+        font-size: 11px !important;
+        font-weight: 400 !important;
+        text-transform: uppercase !important;
+        letter-spacing: -0.24px !important;
+        color: var(--color-warm-granite) !important;
     }
 
-    /* Títulos sobrios y ejecutivos */
+    /* Títulos sobrios con tracking ajustado */
     h1 {
         font-size: 1.65rem !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.025em !important;
-        color: #f8fafc !important;
+        font-weight: 400 !important;
+        letter-spacing: -1.12px !important;
+        color: var(--color-bone) !important;
         margin-bottom: 0.15rem !important;
     }
     h2, h3 {
         font-size: 1.25rem !important;
-        font-weight: 600 !important;
-        letter-spacing: -0.015em !important;
-        color: #e2e8f0 !important;
+        font-weight: 400 !important;
+        letter-spacing: -0.5px !important;
+        color: var(--color-bone) !important;
     }
 
-    /* Botones Minimalist Ghost / Slate */
+    /* Botones Factory: 3px de radio, borde fino de 1px en #3d3a39 */
     div.stButton > button:first-child {
-        background: #1e293b !important;
-        color: #f1f5f9 !important;
-        border: 1px solid #334155 !important;
-        border-radius: 6px !important;
-        font-weight: 600 !important;
-        transition: all 0.15s ease-in-out !important;
+        background: var(--color-carbon-lift) !important;
+        color: var(--color-bone) !important;
+        border: 1px solid var(--color-ash-stroke) !important;
+        border-radius: var(--radius-sm) !important;
+        font-weight: 400 !important;
         font-size: 12px !important;
-        padding: 5px 10px !important;
+        padding: 5px 12px !important;
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     div.stButton > button:first-child:hover {
-        background: #2563eb !important;
-        border-color: #3b82f6 !important;
+        background: #252220 !important;
+        border-color: var(--color-bone) !important;
         color: #ffffff !important;
     }
     div.stDownloadButton > button:first-child {
-        background: #1e293b !important;
-        color: #f1f5f9 !important;
-        border: 1px solid #334155 !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
+        background: var(--color-carbon-lift) !important;
+        color: var(--color-bone) !important;
+        border: 1px solid var(--color-ash-stroke) !important;
+        border-radius: var(--radius-sm) !important;
+        font-weight: 400 !important;
+        font-size: 12px !important;
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     div.stDownloadButton > button:first-child:hover {
-        background: #0284c7 !important;
-        border-color: #38bdf8 !important;
+        background: #252220 !important;
+        border-color: var(--color-metric-green) !important;
         color: #ffffff !important;
     }
 
-    /* Badges de bancos minimalistas */
+    /* Tarjetas del Calendario (Factory Panel) */
+    .cal-card-factory {
+        background: var(--color-carbon-lift);
+        border: 1px solid var(--color-ash-stroke);
+        border-radius: var(--radius-cards);
+        padding: 8px 10px;
+        min-height: 86px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+    .cal-card-empty {
+        background: #141312;
+        border: 1px solid #262423;
+        border-radius: var(--radius-cards);
+        padding: 8px 10px;
+        min-height: 86px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        opacity: 0.55;
+    }
+
+    /* Badges de bancos Factory */
     .bank-pill {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 4px 10px;
-        border-radius: 9999px;
-        font-size: 11.5px;
-        font-weight: 600;
-        letter-spacing: 0.01em;
+        padding: 3px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+        font-family: 'Geist Mono', monospace;
+        letter-spacing: -0.2px;
         margin-right: 6px;
         margin-bottom: 6px;
     }
     .bank-dot {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
         display: inline-block;
     }
 
-    /* Tarjetas BCRA Dark */
+    /* Tarjetas BCRA Factory */
     .bcra-card-dark {
-        background: #111827;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
+        background: var(--color-carbon-lift);
+        border: 1px solid var(--color-ash-stroke);
+        border-radius: var(--radius-cards);
         padding: 14px 18px;
     }
     .bcra-label-dark {
+        font-family: 'Geist Mono', monospace;
         font-size: 11px;
         text-transform: uppercase;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-        color: #94a3b8;
+        letter-spacing: -0.2px;
+        color: var(--color-warm-granite);
     }
     .bcra-val-dark {
         font-size: 26px;
-        font-weight: 700;
+        font-weight: 500;
         margin-top: 3px;
         line-height: 1.1;
     }
     .bcra-table-box {
-        background: #111827;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
+        background: var(--color-carbon-lift);
+        border: 1px solid var(--color-ash-stroke);
+        border-radius: var(--radius-cards);
         padding: 6px 12px;
     }
     .bcra-drawer-box {
-        background: #111827;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
+        background: var(--color-carbon-lift);
+        border: 1px solid var(--color-ash-stroke);
+        border-radius: var(--radius-cards);
         padding: 16px 18px;
     }
     .kpi-mini-box {
-        background: #182234;
-        border: 1px solid #23324d;
-        border-radius: 6px;
+        background: #141312;
+        border: 1px solid #2d2b29;
+        border-radius: var(--radius-sm);
         padding: 8px 10px;
     }
     </style>
@@ -322,15 +368,15 @@ def fmt_ars(value: float) -> str:
         return "$ 0"
 
 
-# Paleta e isotipos de entidades bancarias
+# Paleta e isotipos alineados al sistema Factory
 BANK_THEMES = {
-    "GALICIA": {"color": "#ff7a00", "bg": "rgba(255, 122, 0, 0.12)", "border": "rgba(255, 122, 0, 0.35)", "label": "Galicia"},
-    "MACRO": {"color": "#0284c7", "bg": "rgba(2, 132, 199, 0.12)", "border": "rgba(2, 132, 199, 0.35)", "label": "Macro"},
-    "SANTANDER": {"color": "#ef4444", "bg": "rgba(239, 68, 68, 0.12)", "border": "rgba(239, 68, 68, 0.35)", "label": "Santander"},
-    "BBVA": {"color": "#3b82f6", "bg": "rgba(59, 130, 246, 0.12)", "border": "rgba(59, 130, 246, 0.35)", "label": "BBVA"},
+    "GALICIA": {"color": "#ee6018", "bg": "rgba(238, 96, 24, 0.12)", "border": "rgba(238, 96, 24, 0.35)", "label": "Galicia"},
+    "MACRO": {"color": "#a0ca92", "bg": "rgba(160, 202, 146, 0.12)", "border": "rgba(160, 202, 146, 0.35)", "label": "Macro"},
+    "SANTANDER": {"color": "#f87171", "bg": "rgba(248, 113, 113, 0.12)", "border": "rgba(248, 113, 113, 0.35)", "label": "Santander"},
+    "BBVA": {"color": "#60a5fa", "bg": "rgba(96, 165, 250, 0.12)", "border": "rgba(96, 165, 250, 0.35)", "label": "BBVA"},
     "BNA": {"color": "#38bdf8", "bg": "rgba(56, 189, 248, 0.12)", "border": "rgba(56, 189, 248, 0.35)", "label": "BNA Nación"},
-    "SUPERVIELLE": {"color": "#e11d48", "bg": "rgba(225, 29, 72, 0.12)", "border": "rgba(225, 29, 72, 0.35)", "label": "Supervielle"},
-    "PROVINCIA": {"color": "#10b981", "bg": "rgba(16, 185, 129, 0.12)", "border": "rgba(16, 185, 129, 0.35)", "label": "BAPRO"},
+    "SUPERVIELLE": {"color": "#fb7185", "bg": "rgba(251, 113, 133, 0.12)", "border": "rgba(251, 113, 133, 0.35)", "label": "Supervielle"},
+    "PROVINCIA": {"color": "#34d399", "bg": "rgba(52, 211, 153, 0.12)", "border": "rgba(52, 211, 153, 0.35)", "label": "BAPRO"},
 }
 
 
@@ -344,9 +390,9 @@ st.sidebar.caption("For Drink SA — Control Financiero")
 if conn is not None:
     st.sidebar.markdown(
         """
-        <div style="display:flex; align-items:center; gap:6px; color:#10b981; font-size:0.8rem; font-weight:600; margin-bottom:12px;">
-            <span style="height:7px; width:7px; background-color:#10b981; border-radius:50%; display:inline-block;"></span>
-            Google Sheets Conectado
+        <div style="display:flex; align-items:center; gap:6px; color:#a0ca92; font-size:11px; font-family:'Geist Mono', monospace; margin-bottom:12px;">
+            <span style="height:6px; width:6px; background-color:#a0ca92; border-radius:50%; display:inline-block;"></span>
+            GOOGLE SHEETS CONECTADO
         </div>
         """,
         unsafe_allow_html=True,
@@ -377,7 +423,7 @@ if not st.session_state.is_admin:
             else:
                 st.error("Clave incorrecta")
 else:
-    st.sidebar.markdown("<small style='color:#38bdf8; font-weight:600;'>🔑 Administrador Habilitado</small>", unsafe_allow_html=True)
+    st.sidebar.markdown("<small style='color:#a0ca92; font-family:\"Geist Mono\", monospace; font-size:11px;'>● MODO ADMIN ACTIVO</small>", unsafe_allow_html=True)
     if st.sidebar.button("Cerrar sesión Admin"):
         st.session_state.is_admin = False
         st.rerun()
@@ -492,7 +538,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 fig = px.bar(
                     dist, x="mes", y="importe_ars", text_auto=".2s",
                     labels={"mes": "Mes", "importe_ars": "Importe ARS"},
-                    color_discrete_sequence=["#38bdf8"],
+                    color_discrete_sequence=["#a0ca92"],
                 )
                 fig.update_layout(yaxis_title="Importe ARS", xaxis_title="", margin=dict(t=10, b=10), height=340, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig, use_container_width=True)
@@ -503,13 +549,13 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 st.subheader("Distribución por Sede")
                 por_sede = df_filtered.groupby("tesoreria")["importe_ars"].sum().reset_index()
                 fig_sede = px.pie(por_sede, names="tesoreria", values="importe_ars", hole=0.5,
-                                  color_discrete_sequence=["#0284c7", "#38bdf8"])
+                                  color_discrete_sequence=["#a0ca92", "#ee6018"])
                 fig_sede.update_layout(margin=dict(t=10, b=10), height=280, paper_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig_sede, use_container_width=True)
 
         with right:
             st.subheader("🚦 Carga Semanal Proyectada")
-            st.caption(f"Semáforo rojo (> {fmt_ars(umbral_tension)}) según sede ({sede_global}).")
+            st.caption(f"Semáforo en tensión (> {fmt_ars(umbral_tension)}) según sede ({sede_global}).")
 
             hoy_ts = pd.Timestamp(dt.date.today())
             lunes_actual = hoy_ts - pd.Timedelta(days=hoy_ts.weekday())
@@ -543,9 +589,9 @@ if modulo_activo == "💵 Gestión de Tesorería":
         if not ctrl.empty:
             fig2 = go.Figure()
             fig2.add_trace(go.Bar(y=ctrl["proveedor"], x=ctrl["compromiso_total_ars"], orientation="h",
-                                   name="Comprometido", marker_color="#334155"))
+                                   name="Comprometido", marker_color="#3d3a39"))
             fig2.add_trace(go.Bar(y=ctrl["proveedor"], x=ctrl["pagado_ars"], orientation="h",
-                                   name="Pagado", marker_color="#38bdf8"))
+                                   name="Pagado", marker_color="#a0ca92"))
             fig2.update_layout(barmode="overlay", xaxis_title="Importe ARS", height=max(320, 26 * len(ctrl)),
                                 margin=dict(t=10, b=10), legend=dict(orientation="h", yanchor="bottom", y=1.02),
                                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
@@ -713,11 +759,11 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 def highlight_peaks(row):
                     styles = [""] * len(row)
                     if row["Semana"] == "TOTAL POR PROVEEDOR":
-                        return ["font-weight: 700; background-color: #1e293b; color: #38bdf8;"] * len(row)
+                        return ["font-weight: 500; background-color: #1d1a18; color: #a0ca92;"] * len(row)
                     try:
                         if row["TOTAL SEMANAL"] > umbral_tension:
                             idx = list(row.index).index("TOTAL SEMANAL")
-                            styles[idx] = "background-color: #7f1d1d; font-weight: 700; color: #fecaca;"
+                            styles[idx] = "background-color: #451a03; font-weight: 500; color: #ee6018;"
                     except Exception:
                         pass
                     return styles
@@ -1020,35 +1066,52 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     st.title("Clearing Bancario — Cheques Emitidos")
     st.caption("Seguimiento diario de cámaras compensadoras · For Drink SA")
 
-    # KPIs superiores
-    kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []))
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total en Cheques", fmt_ars(kpis_ch["total_comprometido"]))
-    c2.metric("Cheques Emitidos", f"{kpis_ch['cant_cheques']} valores")
-    c3.metric("Promedio Diario Hábil", fmt_ars(kpis_ch["promedio_diario"]), help="Excluye feriados bancarios y fines de semana.")
-    c4.metric("Pico Máximo Diario", fmt_ars(kpis_ch["pico_maximo"]))
+    # KPIs superiores proyectados estrictamente de HOY en adelante
+    kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []), solo_desde_hoy=True)
+
+    meses_con_promedios = list(kpis_ch.get("promedios_mensuales", {}).keys())
+    mes_actual_str = dt.date.today().strftime("%Y-%m")
+    mes_kpi_default = mes_actual_str if mes_actual_str in meses_con_promedios else (meses_con_promedios[0] if meses_con_promedios else "")
+
+    c1, c2, c3 = st.columns([1.3, 1.2, 1.5])
+    c1.metric("Total a Cubrir", fmt_ars(kpis_ch["total_comprometido"]), help="Valores activos pendientes desde hoy en adelante.")
+    c2.metric("Cheques en Circulación", f"{kpis_ch['cant_cheques']} valores", help="Cantidad de cheques con vencimiento desde hoy.")
+
+    with c3:
+        if meses_con_promedios:
+            c3_sel, c3_val = st.columns([1, 1.2])
+            with c3_sel:
+                mes_prom_sel = st.selectbox("Promedio de:", meses_con_promedios, index=meses_con_promedios.index(mes_kpi_default) if mes_kpi_default in meses_con_promedios else 0, label_visibility="collapsed")
+            info_m = kpis_ch.get("promedios_mensuales", {}).get(mes_prom_sel, {})
+            prom_val = info_m.get("promedio_diario", 0.0)
+            dh_val = info_m.get("dias_habiles", 0)
+            with c3_val:
+                st.metric("Promedio Hábil Mes", fmt_ars(prom_val), help=f"Calculado sobre {dh_val} días hábiles con cheques en {mes_prom_sel}.")
+        else:
+            prom_g = kpis_ch.get("promedio_diario", 0.0)
+            st.metric("Promedio Diario Hábil", fmt_ars(prom_g))
 
     # Micro-Badges y Barra Continua de Concentración Bancaria
     if kpis_ch.get("bancos_distribucion"):
         dist = kpis_ch["bancos_distribucion"]
         
         seg_html = "".join([
-            f"<div style='flex: {info['pct']:.2f}; background-color: {BANK_THEMES.get(b, {}).get('color', '#3b82f6')}; height: 6px; border-radius: 2px;' title='{b}: {info['pct']:.1f}%'></div>"
+            f"<div style='flex: {info['pct']:.2f}; background-color: {BANK_THEMES.get(b, {}).get('color', '#38bdf8')}; height: 4px; border-radius: 1px;' title='{b}: {info['pct']:.1f}%'></div>"
             for b, info in dist.items()
         ])
         
         pills_html = "".join([
-            f"""<div class='bank-pill' style='background:{BANK_THEMES.get(b, {}).get('bg', '#1e293b')}; border:1px solid {BANK_THEMES.get(b, {}).get('border', '#334155')}; color:#f8fafc;'>
+            f"""<div class='bank-pill' style='background:{BANK_THEMES.get(b, {}).get('bg', '#1d1a18')}; border:1px solid {BANK_THEMES.get(b, {}).get('border', '#3d3a39')}; color:#eeeeee;'>
                 <span class='bank-dot' style='background-color:{BANK_THEMES.get(b, {}).get('color', '#38bdf8')};'></span>
-                <b>{b}</b> {info['pct']:.1f}% <span style='color:#94a3b8; font-weight:400;'>({fmt_ars(info['monto'])})</span>
+                <b>{b}</b> {info['pct']:.1f}% <span style='color:#8a8380; font-weight:400;'>({fmt_ars(info['monto'])})</span>
             </div>"""
             for b, info in dist.items()
         ])
 
         st.markdown(
             f"""
-            <div style="background:#111827; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; margin-top:6px; margin-bottom:14px;">
-                <div style="display:flex; gap:3px; margin-bottom:10px; border-radius:3px; overflow:hidden;">
+            <div style="background:#1d1a18; border:1px solid #3d3a39; border-radius:10px; padding:12px 16px; margin-top:6px; margin-bottom:14px;">
+                <div style="display:flex; gap:3px; margin-bottom:10px; border-radius:2px; overflow:hidden;">
                     {seg_html}
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
@@ -1069,7 +1132,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             st.markdown(f"### 📅 {dia_nom} {fecha_sel.strftime('%d/%m/%Y')}")
             
             tot_d = df_dia["Importe"].sum()
-            st.markdown(f"<div style='font-size:24px; font-weight:800; color:#38bdf8; margin-bottom:12px;'>Total a cubrir: {fmt_ars(tot_d)}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-family:\"Geist Mono\", monospace; font-size:24px; font-weight:500; color:#a0ca92; margin-bottom:12px;'>Total a cubrir: {fmt_ars(tot_d)}</div>", unsafe_allow_html=True)
             
             st.markdown("##### Desglose por Banco Emisor")
             banco_grp = df_dia.groupby("Banco")["Importe"].agg(["sum", "count"]).reset_index()
@@ -1077,7 +1140,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
             for _, r in banco_grp.iterrows():
                 b_nom = r["Banco"]
-                theme = BANK_THEMES.get(b_nom, {"color": "#38bdf8", "bg": "#1e293b", "border": "#334155"})
+                theme = BANK_THEMES.get(b_nom, {"color": "#a0ca92", "bg": "#1d1a18", "border": "#3d3a39"})
                 c_b1, c_b2, c_b3 = st.columns([2, 2, 1])
                 c_b1.markdown(f"<span class='bank-dot' style='background:{theme['color']};'></span> **{b_nom}** ({r['count']} ch.)", unsafe_allow_html=True)
                 c_b2.markdown(f"**{fmt_ars(r['sum'])}**")
@@ -1104,7 +1167,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     ])
 
     # -----------------------------------------------------------------------
-    # TAB A: Sábana de Cámaras (Con día abreviado LUN, MAR, etc.)
+    # TAB A: Sábana de Cámaras (Con prefijo VIE 25-SEP)
     # -----------------------------------------------------------------------
     with tab_sabana:
         meses_unicos = sorted(df_ch["MES_KEY"].dropna().unique().tolist()) if not df_ch.empty else []
@@ -1161,7 +1224,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 styles = [""] * len(row)
 
                 if is_sub:
-                    sub_style = "background-color: #1e293b; font-weight: 700; color: #38bdf8; border-top: 1px solid #334155; border-bottom: 2px solid #475569;"
+                    sub_style = "background-color: #1d1a18; font-weight: 500; color: #a0ca92; border-top: 1px solid #3d3a39; border-bottom: 2px solid #4d4947;"
                     return [sub_style] * len(row)
 
                 val = row["TOTAL"]
@@ -1169,13 +1232,13 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 u_v, u_a, u_n = st.session_state.semaforos_mes.get(mes_k, (50_000_000.0, 100_000_000.0, 150_000_000.0))
 
                 if val > u_n:
-                    style_tot = "background-color: #7f1d1d; color: #fecaca; font-weight: 700;"
+                    style_tot = "background-color: #451a03; color: #ee6018; font-weight: 500;"
                 elif val > u_a:
-                    style_tot = "background-color: #7c2d12; color: #ffedd5; font-weight: 700;"
+                    style_tot = "background-color: #3b2811; color: #fcd34d; font-weight: 500;"
                 elif val > u_v:
-                    style_tot = "background-color: #78350f; color: #fef3c7; font-weight: 700;"
+                    style_tot = "background-color: #26291a; color: #fef08a; font-weight: 500;"
                 else:
-                    style_tot = "background-color: #064e3b; color: #d1fae5; font-weight: 700;"
+                    style_tot = "background-color: #142217; color: #a0ca92; font-weight: 500;"
 
                 idx_tot = list(row.index).index("TOTAL")
                 styles[idx_tot] = style_tot
@@ -1311,7 +1374,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             )
 
     # -----------------------------------------------------------------------
-    # TAB B: Calendario Visual con Tarjetas y Botón de Detalle Completo
+    # TAB B: Calendario Visual Clásico y Estable (Con Botón 'Ver detalle')
     # -----------------------------------------------------------------------
     with tab_cal:
         col_cal_m, col_cal_y = st.columns([1, 1])
@@ -1324,7 +1387,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
         c_cols = st.columns(7)
         for i, nom_d in enumerate(dias_nombres):
-            c_cols[i].markdown(f"<div style='text-align:center; font-weight:600; font-size:12px; color:#94a3b8; padding-bottom:8px;'>{nom_d}</div>", unsafe_allow_html=True)
+            c_cols[i].markdown(f"<div style='text-align:center; font-family:\"Geist Mono\", monospace; font-size:11px; color:#8a8380; text-transform:uppercase; padding-bottom:8px;'>{nom_d}</div>", unsafe_allow_html=True)
 
         df_activos_cal = df_ch[df_ch.get("Estado", "Emitido").astype(str).str.lower() != "anulado"]
 
@@ -1340,22 +1403,23 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                         tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
 
                         es_feriado = fecha_d in st.session_state.get("feriados", [])
-                        lbl_feriado = " <span style='color:#f59e0b; font-size:10px; font-weight:600;'>FERIADO</span>" if es_feriado else ""
+                        lbl_feriado = " <span style='color:#ee6018; font-size:10px; font-family:\"Geist Mono\", monospace;'>FERIADO</span>" if es_feriado else ""
 
                         if tot_dia > 0:
                             bancos_dia = df_dia["Banco"].dropna().unique().tolist()
                             badges_bancos = "".join([
-                                f"<span style='display:inline-block; font-size:9.5px; padding:1px 5px; border-radius:4px; margin-right:3px; background:{BANK_THEMES.get(b, {}).get('bg', '#1e293b')}; color:{BANK_THEMES.get(b, {}).get('color', '#38bdf8')}; border:1px solid {BANK_THEMES.get(b, {}).get('border', '#334155')}; font-weight:700;'>{str(b)[:4]}</span>"
+                                f"<span style='display:inline-block; font-size:9.5px; padding:1px 5px; border-radius:3px; margin-right:3px; background:{BANK_THEMES.get(b, {}).get('bg', '#1d1a18')}; color:{BANK_THEMES.get(b, {}).get('color', '#a0ca92')}; border:1px solid {BANK_THEMES.get(b, {}).get('border', '#3d3a39')}; font-family:\"Geist Mono\", monospace;'>{str(b)[:4]}</span>"
                                 for b in bancos_dia[:3]
                             ])
 
+                            # Tarjeta visual con tipografía y jerarquía Factory
                             st.markdown(
                                 f"""
-                                <div style="background:#111827; border:1px solid #1e293b; border-top:2px solid #38bdf8; border-radius:8px; padding:6px 8px; min-height:86px; display:flex; flex-direction:column; justify-content:space-between; margin-bottom:4px;">
+                                <div class="cal-card-factory">
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                                        <span style="font-size:11px; font-weight:700; color:#94a3b8;">{day:02d}</span>{lbl_feriado}
+                                        <span style="font-family:'Geist Mono', monospace; font-size:11px; color:#8a8380;">{day:02d}</span>{lbl_feriado}
                                     </div>
-                                    <div style="font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:800; color:#38bdf8; margin:4px 0;">
+                                    <div style="font-family:'Geist Mono', monospace; font-size:13px; font-weight:500; color:#eeeeee; margin:4px 0;">
                                         {fmt_ars(tot_dia)}
                                     </div>
                                     <div style="overflow:hidden; white-space:nowrap;">{badges_bancos}</div>
@@ -1363,15 +1427,15 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                                 """,
                                 unsafe_allow_html=True,
                             )
-                            # Botón visible de ancho completo para abrir el modal
+                            # Botón visible de ancho completo para abrir el modal nativo
                             if st.button("Ver detalle", key=f"btn_d_{fecha_d}", use_container_width=True):
                                 abrir_modal_dia(fecha_d, df_dia)
                         else:
                             st.markdown(
                                 f"""
-                                <div style="background:#0b0f17; border:1px solid #182234; border-radius:8px; padding:6px 8px; min-height:86px; display:flex; flex-direction:column; justify-content:space-between; margin-bottom:4px; opacity:0.45;">
-                                    <div style="font-size:11px; font-weight:600; color:#64748b;">{day:02d}{lbl_feriado}</div>
-                                    <div style="font-size:11px; color:#475569;">—</div>
+                                <div class="cal-card-empty">
+                                    <div style="font-family:'Geist Mono', monospace; font-size:11px; color:#4d4947;">{day:02d}{lbl_feriado}</div>
+                                    <div style="font-size:11px; color:#3d3a39;">—</div>
                                     <div style="height:14px;"></div>
                                 </div>
                                 """,
@@ -1617,13 +1681,13 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Libradores Evaluados</div><div class='bcra-val-dark' style='color:#f8fafc;'>{n_tot}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Libradores Evaluados</div><div class='bcra-val-dark' style='color:#eeeeee;'>{n_tot}</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Sin Alertas</div><div class='bcra-val-dark' style='color:#10b981;'>{n_ok}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Sin Alertas</div><div class='bcra-val-dark' style='color:#a0ca92;'>{n_ok}</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Revisar</div><div class='bcra-val-dark' style='color:#f59e0b;'>{n_warn}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Revisar</div><div class='bcra-val-dark' style='color:#fcd34d;'>{n_warn}</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Alertas / Rechazar</div><div class='bcra-val-dark' style='color:#ef4444;'>{n_bad}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='bcra-card-dark'><div class='bcra-label-dark'>Alertas / Rechazar</div><div class='bcra-val-dark' style='color:#ee6018;'>{n_bad}</div></div>", unsafe_allow_html=True)
 
     st.write("")
 
@@ -1634,8 +1698,8 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             st.markdown(
                 """
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <b style="font-size:14px; color:#f8fafc;">Listado de Libradores</b>
-                    <small style="color:#94a3b8;">Prioridad: Alerta → Revisar → Sin Alertas</small>
+                    <b style="font-size:14px; color:#eeeeee; font-weight:400;">Listado de Libradores</b>
+                    <small style="color:#8a8380; font-family:'Geist Mono', monospace; font-size:11px;">PRIORIDAD: ALERTA → REVISAR → SIN ALERTAS</small>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -1645,35 +1709,35 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             for x in data_bcra:
                 sit = x["worst"]
                 if sit in (0, 1):
-                    badge_style = "background:#064e3b; color:#34d399; border: 1px solid #059669;"
+                    badge_style = "background:#142217; color:#a0ca92; border: 1px solid #2d4530;"
                 elif sit == 2:
-                    badge_style = "background:#78350f; color:#fbbf24; border: 1px solid #d97706;"
+                    badge_style = "background:#3b2811; color:#fcd34d; border: 1px solid #573c19;"
                 else:
-                    badge_style = "background:#7f1d1d; color:#f87171; border: 1px solid #dc2626;"
+                    badge_style = "background:#451a03; color:#ee6018; border: 1px solid #7c2d12;"
 
                 if x["risk"] == "bad":
-                    pill_style = "background:#7f1d1d; color:#fecaca; border:1px solid #dc2626;"
+                    pill_style = "background:#451a03; color:#ee6018; border:1px solid #7c2d12;"
                 elif x["risk"] == "warn":
-                    pill_style = "background:#78350f; color:#fde68a; border:1px solid #d97706;"
+                    pill_style = "background:#3b2811; color:#fcd34d; border:1px solid #573c19;"
                 else:
-                    pill_style = "background:#064e3b; color:#a7f3d0; border:1px solid #059669;"
+                    pill_style = "background:#142217; color:#a0ca92; border:1px solid #2d4530;"
 
-                imp_txt = f"<span style='color:#ef4444; font-weight:700;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#94a3b8;'>(0 impagos)</span>"
+                imp_txt = f"<span style='color:#ee6018; font-weight:500;'>({x['pending']} impagos)</span>" if x["pending"] > 0 else "<span style='color:#8a8380;'>(0 impagos)</span>"
 
                 table_rows.append(
-                    f"<tr style='border-bottom: 1px solid #1e293b;'>"
-                    f"<td style='padding:10px 8px; color:#f8fafc;'><b>{x['denominacion']}</b><br><small style='font-family:monospace; color:#94a3b8;'>{x['cuit']}</small></td>"
-                    f"<td style='text-align:center; padding:10px 4px;'><span style='display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; font-weight:700; font-size:11.5px; {badge_style}'>{sit}</span></td>"
-                    f"<td style='padding:10px 8px; font-weight:700; color:#f8fafc;'>{fmt_ars(x['debt'])}</td>"
-                    f"<td style='padding:10px 8px; color:#f8fafc;'>{x['rejected']} {imp_txt}</td>"
-                    f"<td style='padding:10px 8px; text-align:right;'><span style='display:inline-block; padding:3px 9px; border-radius:9999px; font-size:11px; font-weight:700; {pill_style}'>{x['risk_label']}</span></td>"
+                    f"<tr style='border-bottom: 1px solid #3d3a39;'>"
+                    f"<td style='padding:10px 8px; color:#eeeeee;'><b>{x['denominacion']}</b><br><small style='font-family:\"Geist Mono\", monospace; color:#8a8380; font-size:11px;'>{x['cuit']}</small></td>"
+                    f"<td style='text-align:center; padding:10px 4px;'><span style='display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:3px; font-weight:500; font-size:11px; {badge_style}'>{sit}</span></td>"
+                    f"<td style='padding:10px 8px; font-weight:500; font-family:\"Geist Mono\", monospace; color:#eeeeee;'>{fmt_ars(x['debt'])}</td>"
+                    f"<td style='padding:10px 8px; color:#eeeeee; font-family:\"Geist Mono\", monospace;'>{x['rejected']} {imp_txt}</td>"
+                    f"<td style='padding:10px 8px; text-align:right;'><span style='display:inline-block; padding:2px 8px; border-radius:3px; font-size:10.5px; font-family:\"Geist Mono\", monospace; {pill_style}'>{x['risk_label']}</span></td>"
                     f"</tr>"
                 )
 
             html_table = (
                 f"<div class='bcra-table-box'>"
                 f"<table style='width:100%; border-collapse:collapse; font-size:13px;'>"
-                f"<thead><tr style='border-bottom:1px solid #334155; color:#94a3b8; font-size:10.5px; text-transform:uppercase;'>"
+                f"<thead><tr style='border-bottom:1px solid #3d3a39; color:#8a8380; font-family:\"Geist Mono\", monospace; font-size:11px; text-transform:uppercase;'>"
                 f"<th style='padding:8px; text-align:left;'>Librador / Denominación</th>"
                 f"<th style='padding:8px; text-align:center;'>Peor Sit.</th>"
                 f"<th style='padding:8px; text-align:left;'>Deuda Bancaria</th>"
@@ -1689,7 +1753,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             st.markdown(
                 """
                 <div style="margin-bottom:8px;">
-                    <span class="bcra-label-dark">Ficha del Librador</span>
+                    <span class="bcra-label-dark">FICHA DEL LIBRADOR</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -1701,22 +1765,22 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             lib = data_bcra[idx_sel]
 
             if lib["risk"] == "bad":
-                badge_d_style = "background:#7f1d1d; color:#fecaca; border:1px solid #dc2626;"
+                badge_d_style = "background:#451a03; color:#ee6018; border:1px solid #7c2d12;"
             elif lib["risk"] == "warn":
-                badge_d_style = "background:#78350f; color:#fde68a; border:1px solid #d97706;"
+                badge_d_style = "background:#3b2811; color:#fcd34d; border:1px solid #573c19;"
             else:
-                badge_d_style = "background:#064e3b; color:#a7f3d0; border:1px solid #059669;"
+                badge_d_style = "background:#142217; color:#a0ca92; border:1px solid #2d4530;"
 
             drawer_html = (
                 f"<div class='bcra-drawer-box'>"
-                f"<h3 style='margin:0 0 2px 0; font-size:16px; font-weight:700; color:#f8fafc;'>{lib['denominacion']}</h3>"
-                f"<div style='font-family:monospace; color:#94a3b8; font-size:12px; margin-bottom:10px;'>{lib['cuit']}</div>"
-                f"<span style='display:inline-block; padding:3px 9px; border-radius:9999px; font-size:11px; font-weight:700; {badge_d_style}'>{lib['risk_label']}</span>"
+                f"<h3 style='margin:0 0 2px 0; font-size:16px; font-weight:400; color:#eeeeee;'>{lib['denominacion']}</h3>"
+                f"<div style='font-family:\"Geist Mono\", monospace; color:#8a8380; font-size:11px; margin-bottom:10px;'>{lib['cuit']}</div>"
+                f"<span style='display:inline-block; padding:2px 8px; border-radius:3px; font-size:11px; font-family:\"Geist Mono\", monospace; {badge_d_style}'>{lib['risk_label']}</span>"
                 f"<div style='display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px;'>"
-                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Peor Situación</div><b style='font-size:15px; color:#f8fafc; margin-top:2px; display:block;'>{lib['worst']}</b></div>"
-                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Deuda Total</div><b style='font-size:15px; color:#f8fafc; margin-top:2px; display:block;'>{fmt_ars(lib['debt'])}</b></div>"
-                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Total Rechazos</div><b style='font-size:15px; color:#f8fafc; margin-top:2px; display:block;'>{lib['rejected']}</b></div>"
-                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Impagos / Pend.</div><b style='font-size:15px; margin-top:2px; display:block; color:{'#ef4444' if lib['pending'] > 0 else '#f8fafc'};'>{lib['pending']}</b></div>"
+                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Peor Situación</div><b style='font-size:15px; color:#eeeeee; margin-top:2px; display:block;'>{lib['worst']}</b></div>"
+                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Deuda Total</div><b style='font-size:15px; color:#eeeeee; margin-top:2px; display:block;'>{fmt_ars(lib['debt'])}</b></div>"
+                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Total Rechazos</div><b style='font-size:15px; color:#eeeeee; margin-top:2px; display:block;'>{lib['rejected']}</b></div>"
+                f"<div class='kpi-mini-box'><div class='bcra-label-dark'>Impagos / Pend.</div><b style='font-size:15px; margin-top:2px; display:block; color:{'#ee6018' if lib['pending'] > 0 else '#eeeeee'};'>{lib['pending']}</b></div>"
                 f"</div></div>"
             )
             st.markdown(drawer_html, unsafe_allow_html=True)
@@ -1724,15 +1788,15 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
             st.write("")
             for al in lib["alerts"]:
                 if lib["risk"] == "bad":
-                    al_style = "background:#450a0a; color:#fca5a5; border-left: 3px solid #ef4444;"
+                    al_style = "background:#291205; color:#fdba74; border-left: 2px solid #ee6018;"
                 elif lib["risk"] == "warn":
-                    al_style = "background:#451a03; color:#fcd34d; border-left: 3px solid #f59e0b;"
+                    al_style = "background:#261a0a; color:#fde68a; border-left: 2px solid #f59e0b;"
                 else:
-                    al_style = "background:#064e3b; color:#6ee7b7; border-left: 3px solid #10b981;"
-                st.markdown(f"<div style='padding:7px 10px; border-radius:6px; font-size:12px; font-weight:500; margin-bottom:5px; {al_style}'>{al}</div>", unsafe_allow_html=True)
+                    al_style = "background:#0f1d13; color:#bbf7d0; border-left: 2px solid #a0ca92;"
+                st.markdown(f"<div style='padding:7px 10px; border-radius:3px; font-size:12px; font-weight:400; margin-bottom:5px; {al_style}'>{al}</div>", unsafe_allow_html=True)
 
             if lib["last3"]:
-                st.markdown("<small style='font-weight:600; text-transform:uppercase; color:#94a3b8;'>Últimos 3 Cheques Rechazados</small>", unsafe_allow_html=True)
+                st.markdown("<small style='font-family:\"Geist Mono\", monospace; text-transform:uppercase; color:#8a8380; font-size:10px;'>ÚLTIMOS 3 CHEQUES RECHAZADOS</small>", unsafe_allow_html=True)
                 for ch in lib["last3"]:
                     f_ch = str(ch.get("fechaRechazo", "—")).split("T")[0]
                     if "-" in f_ch:
@@ -1740,8 +1804,8 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
                         if len(p_f) == 3 and len(p_f[0]) == 4:
                             f_ch = f"{p_f[2]}-{p_f[1]}-{p_f[0]}"
                     m_ch = fmt_ars(ch.get("monto", 0))
-                    estado_ch = "<span style='color:#34d399; font-weight:700;'>Pagado</span>" if ch.get("fechaPago") else "<span style='color:#f87171; font-weight:700;'>Impago</span>"
-                    st.markdown(f"<div style='font-size:12px; border-bottom:1px solid #1e293b; padding:4px 0; color:#cbd5e1;'>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{estado_ch}]</div>", unsafe_allow_html=True)
+                    estado_ch = "<span style='color:#a0ca92; font-weight:500;'>Pagado</span>" if ch.get("fechaPago") else "<span style='color:#ee6018; font-weight:500;'>Impago</span>"
+                    st.markdown(f"<div style='font-size:11.5px; border-bottom:1px solid #3d3a39; padding:4px 0; color:#b8b3b0;'>• <b>{f_ch}</b> — {m_ch} ({ch.get('causal')}) [{estado_ch}]</div>", unsafe_allow_html=True)
 
         st.divider()
         st.subheader("📱 Mensaje para WhatsApp")
@@ -1765,7 +1829,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
         elif revisar:
             wa_txt = "Hola! De la tanda analizada no hay alertas críticas, pero sugiero *revisar*:\n\n"
             for rv in revisar:
-                wa_txt += f"• *{rv['denominacion']}* (CUIT {rv['cuit']}) - Sit: {rv['worst']}\n"
+                wa_txt += f"• {rv['denominacion']} (Sit: {rv['worst']})\n"
         else:
             wa_txt = "Hola! Todos los libradores analizados están en condiciones *OK (Sin Alertas)*. ✅"
 
