@@ -28,7 +28,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4, portrait, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
@@ -76,9 +76,10 @@ st.markdown(
     html, body, [class*="css"], .stMarkdown {
         font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif !important;
         letter-spacing: -0.015em;
+        color: var(--color-bone) !important;
     }
 
-    /* Fondo Obsidian Canvas */
+    /* Fondo Obsidian Canvas estricto */
     .stApp {
         background-color: var(--color-obsidian-canvas) !important;
     }
@@ -368,7 +369,6 @@ def fmt_ars(value: float) -> str:
         return "$ 0"
 
 
-# Paleta e isotipos alineados al sistema Factory
 BANK_THEMES = {
     "GALICIA": {"color": "#ee6018", "bg": "rgba(238, 96, 24, 0.12)", "border": "rgba(238, 96, 24, 0.35)", "label": "Galicia"},
     "MACRO": {"color": "#a0ca92", "bg": "rgba(160, 202, 146, 0.12)", "border": "rgba(160, 202, 146, 0.35)", "label": "Macro"},
@@ -527,7 +527,7 @@ if modulo_activo == "💵 Gestión de Tesorería":
         c1.metric("Total Comprometido", fmt_ars(kpis.total_comprometido))
         c2.metric("Total Pagado", fmt_ars(kpis.total_pagado))
         c3.metric("Saldo Pendiente", fmt_ars(kpis.saldo_pendiente))
-        c4.metric("Desembolso Promedio", fmt_ars(kpis.desembolso_promedio))
+        c4.metric("Desembolso Mensual Promedio", fmt_ars(kpis.desembolso_mensual_promedio), help="Total comprometido dividido por la cantidad de meses únicos que componen el período.")
 
         st.divider()
         left, right = st.columns([3, 2])
@@ -891,10 +891,77 @@ if modulo_activo == "💵 Gestión de Tesorería":
                 wb.save(buf)
                 return buf.getvalue()
 
+            def export_provider_to_pdf(df_table: pd.DataFrame, prov_name: str, op_name: str) -> bytes:
+                buf = BytesIO()
+                doc = SimpleDocTemplate(buf, pagesize=portrait(A4), rightMargin=28, leftMargin=28, topMargin=30, bottomMargin=30)
+                styles = getSampleStyleSheet()
+                story = []
+
+                title_style = ParagraphStyle('EscTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1F4E78'), spaceAfter=4)
+                sub_style = ParagraphStyle('EscSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555555'), spaceAfter=14)
+
+                op_txt = f" — {op_name}" if op_name != "Todas las Operaciones (Consolidado)" else ""
+                story.append(Paragraph(f"<b>FOR DRINK SA — PLAN DE PAGOS ACORDADO</b>", title_style))
+                story.append(Paragraph(f"<b>Proveedor:</b> {prov_name.upper()}{op_txt}<br/><b>Emisión:</b> {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
+
+                headers = ["Fecha Vto.", "Importe ARS", "Estado", "Detalle / Observaciones"]
+                table_data = [headers]
+                total_suma = 0.0
+
+                for _, r in df_table.iterrows():
+                    f_val = r["Fecha Vto."].strftime("%d/%m/%Y") if pd.notna(r["Fecha Vto."]) else ""
+                    imp_f = float(r["Importe ARS"]) if pd.notna(r["Importe ARS"]) else 0.0
+                    total_suma += imp_f
+                    table_data.append([
+                        f_val,
+                        fmt_ars(imp_f),
+                        str(r.get("Estado", "")),
+                        str(r.get("Detalle / Observaciones", "")),
+                    ])
+
+                table_data.append(["TOTAL ACORDADO", fmt_ars(total_suma), "", ""])
+
+                t = Table(table_data, colWidths=[80, 105, 80, 265])
+                t.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 8.5),
+                    ('ALIGN', (0, 0), (2, -1), 'CENTER'),
+                    ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+                    ('ALIGN', (3, 1), (3, -1), 'LEFT'),
+                    ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#DDDDDD')),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('TOPPADDING', (0, 0), (-1, -1), 5),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                    ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#EFEFEF')),
+                    ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ]))
+                story.append(t)
+                doc.build(story)
+                return buf.getvalue()
+
             table_view = format_ladder_table(df_p)
-            c_down_xl, _ = st.columns([1.5, 3])
+            c_down_xl, c_down_pdf, _ = st.columns([1.3, 1.3, 2])
             with c_down_xl:
-                st.download_button("📥 Descargar Excel del Proveedor", export_provider_to_excel(table_view, p_sel, op_sel), f"Escalera_{p_sel.replace(' ', '_')}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key=f"dl_xl_{p_sel}", use_container_width=True)
+                st.download_button(
+                    "📥 Descargar Excel",
+                    export_provider_to_excel(table_view, p_sel, op_sel),
+                    f"Escalera_{p_sel.replace(' ', '_')}.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"dl_xl_{p_sel}",
+                    use_container_width=True,
+                )
+
+            with c_down_pdf:
+                st.download_button(
+                    "📄 Descargar PDF",
+                    export_provider_to_pdf(table_view, p_sel, op_sel),
+                    f"Escalera_{p_sel.replace(' ', '_')}.pdf",
+                    "application/pdf",
+                    key=f"dl_pdf_{p_sel}",
+                    use_container_width=True,
+                )
 
             st.dataframe(
                 table_view.style.format({
@@ -1167,7 +1234,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     ])
 
     # -----------------------------------------------------------------------
-    # TAB A: Sábana de Cámaras (Con prefijo VIE 25-SEP)
+    # TAB A: Sábana de Cámaras
     # -----------------------------------------------------------------------
     with tab_sabana:
         meses_unicos = sorted(df_ch["MES_KEY"].dropna().unique().tolist()) if not df_ch.empty else []
@@ -1374,7 +1441,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             )
 
     # -----------------------------------------------------------------------
-    # TAB B: Calendario Visual Clásico y Estable (Con Botón 'Ver detalle')
+    # TAB B: Calendario Visual Clásico con Botón 'Ver detalle'
     # -----------------------------------------------------------------------
     with tab_cal:
         col_cal_m, col_cal_y = st.columns([1, 1])
@@ -1412,7 +1479,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                                 for b in bancos_dia[:3]
                             ])
 
-                            # Tarjeta visual con tipografía y jerarquía Factory
                             st.markdown(
                                 f"""
                                 <div class="cal-card-factory">
@@ -1427,7 +1493,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                                 """,
                                 unsafe_allow_html=True,
                             )
-                            # Botón visible de ancho completo para abrir el modal nativo
                             if st.button("Ver detalle", key=f"btn_d_{fecha_d}", use_container_width=True):
                                 abrir_modal_dia(fecha_d, df_dia)
                         else:
@@ -1829,7 +1894,7 @@ elif modulo_activo == "🔍 Analizador de Libradores · BCRA":
         elif revisar:
             wa_txt = "Hola! De la tanda analizada no hay alertas críticas, pero sugiero *revisar*:\n\n"
             for rv in revisar:
-                wa_txt += f"• {rv['denominacion']} (Sit: {rv['worst']})\n"
+                wa_txt += f"• *{rv['denominacion']}* (CUIT {rv['cuit']}) - Sit: {rv['worst']}\n"
         else:
             wa_txt = "Hola! Todos los libradores analizados están en condiciones *OK (Sin Alertas)*. ✅"
 
