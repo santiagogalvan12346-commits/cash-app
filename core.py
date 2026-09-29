@@ -137,7 +137,6 @@ def compute_kpis(df: pd.DataFrame) -> KPIs:
     total_pag = df[df["estado"] == "Pagado"]["importe_ars"].sum()
     saldo_pend = df[df["estado"] != "Pagado"]["importe_ars"].sum()
     
-    # Desembolso mensual promedio: total dividido entre la cantidad de meses únicos
     meses_unicos = df["mes"].dropna().unique()
     cant_meses = len(meses_unicos) if len(meses_unicos) > 0 else 1
     desembolso_mensual_prom = total_comp / cant_meses
@@ -271,8 +270,26 @@ def export_to_excel(df: pd.DataFrame) -> bytes:
 # Módulo de Clearing y Cheques Emitidos
 # ---------------------------------------------------------------------------
 
+def clean_check_number(val: Any) -> str:
+    """Normaliza estrictamente el número de cheque quitando sufijos .0 y espacios."""
+    if pd.isna(val):
+        return ""
+    s = str(val).strip()
+    if s.lower() in ("nan", "none", ""):
+        return ""
+    if s.endswith(".0"):
+        s = s[:-2]
+    try:
+        f = float(s)
+        if f.is_integer():
+            return str(int(f))
+    except (ValueError, TypeError):
+        pass
+    return s
+
+
 def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """Estandariza los cheques preservando estado y trazabilidad lógica."""
+    """Estandariza los cheques eliminando .0 de números de cheque y normalizando fechas."""
     if df_raw is None or df_raw.empty:
         return pd.DataFrame(columns=[
             "Banco", "EMPRESA", "Cuenta Libradora", "Fecha Emisión", "Fecha Pago",
@@ -346,8 +363,12 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     if "Banco" in df.columns:
         df["Banco"] = df["Banco"].astype(str).str.strip().str.upper()
 
+    # Sanitización estricta: nunca más .0 en Nro. de Cheque ni Cuenta Libradora
     if "Nro. de Cheque" in df.columns:
-        df["Nro. de Cheque"] = df["Nro. de Cheque"].astype(str).str.strip().replace("nan", "")
+        df["Nro. de Cheque"] = df["Nro. de Cheque"].apply(clean_check_number)
+
+    if "Cuenta Libradora" in df.columns:
+        df["Cuenta Libradora"] = df["Cuenta Libradora"].apply(clean_check_number)
 
     if "Estado" not in df.columns:
         df["Estado"] = "Emitido"
@@ -364,11 +385,11 @@ def normalize_cheques_df(df_raw: pd.DataFrame) -> pd.DataFrame:
 
 
 def prepare_cheques_to_save(df: pd.DataFrame) -> pd.DataFrame:
-    """Prepara el DataFrame para persistir en Google Sheets con trazabilidad."""
+    """Prepara el DataFrame para persistir en Google Sheets garantizando números limpios."""
     df_out = pd.DataFrame()
     df_out["Banco"] = df["Banco"].astype(str).str.strip().str.upper()
     df_out["EMPRESA"] = df.get("EMPRESA", "FD")
-    df_out["Cuenta Libradora"] = df.get("Cuenta Libradora", "")
+    df_out["Cuenta Libradora"] = df.get("Cuenta Libradora", "").apply(clean_check_number)
     
     df_out["Fecha Emisión"] = pd.to_datetime(df["Fecha Emisión"], dayfirst=True, errors="coerce").dt.strftime("%d/%m/%Y")
     df_out["Fecha Pago"] = pd.to_datetime(df["Fecha Pago"], dayfirst=True, errors="coerce").dt.strftime("%d/%m/%Y")
@@ -380,9 +401,9 @@ def prepare_cheques_to_save(df: pd.DataFrame) -> pd.DataFrame:
     df_out["MES.2"] = fp.dt.month.map(MESES_ES)
     df_out["AÑO"] = fp.dt.year
 
-    df_out["Nro. de Cheque"] = df.get("Nro. de Cheque", "")
+    df_out["Nro. de Cheque"] = df.get("Nro. de Cheque", "").apply(clean_check_number)
     df_out["Importe"] = pd.to_numeric(df["Importe"], errors="coerce").fillna(0.0).round(2)
-    df_out["CUIT Beneficiario"] = df.get("CUIT Beneficiario", "")
+    df_out["CUIT Beneficiario"] = df.get("CUIT Beneficiario", "").apply(clean_check_number)
     df_out["Razón Social Beneficiario"] = df.get("Razón Social Beneficiario", "")
     df_out["Estado"] = df.get("Estado", "Emitido")
     df_out["Motivo Anulación"] = df.get("Motivo Anulación", "")
@@ -391,16 +412,19 @@ def prepare_cheques_to_save(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def check_cheque_duplicates(df_exist: pd.DataFrame, new_items: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Detecta cheques duplicados según Banco + Nro. de Cheque + Cuenta Libradora."""
+    """Detecta cheques duplicados considerando la clave Banco + Nro. de Cheque."""
     def make_k(b, n, c):
-        return f"{str(b or '').strip().upper()}|{str(n or '').strip()}|{str(c or '').strip()}"
+        b_clean = str(b or "").strip().upper()
+        n_clean = clean_check_number(n)
+        return f"{b_clean}|{n_clean}"
 
     existing_keys = set()
     if df_exist is not None and not df_exist.empty:
         for _, r in df_exist.iterrows():
             if str(r.get("Estado", "")).strip().lower() != "anulado":
                 k = make_k(r.get("Banco"), r.get("Nro. de Cheque"), r.get("Cuenta Libradora", ""))
-                existing_keys.add(k)
+                if k != "|":
+                    existing_keys.add(k)
 
     valids, dups = [], []
     for item in new_items:
