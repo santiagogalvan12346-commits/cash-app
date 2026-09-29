@@ -369,6 +369,7 @@ def fmt_ars(value: float) -> str:
         return "$ 0"
 
 
+# Paleta e isotipos alineados al sistema Factory
 BANK_THEMES = {
     "GALICIA": {"color": "#ee6018", "bg": "rgba(238, 96, 24, 0.12)", "border": "rgba(238, 96, 24, 0.35)", "label": "Galicia"},
     "MACRO": {"color": "#a0ca92", "bg": "rgba(160, 202, 146, 0.12)", "border": "rgba(160, 202, 146, 0.35)", "label": "Macro"},
@@ -1536,7 +1537,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 key="txt_ch_excel_input",
             )
 
-           if st.button("📥 Procesar y Guardar Cheques en Google Sheets"):
+            if st.button("📥 Procesar y Guardar Cheques en Google Sheets"):
                 if not txt_ch_excel.strip():
                     st.warning("El campo de texto está vacío.")
                 else:
