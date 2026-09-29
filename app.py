@@ -1549,9 +1549,11 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                             if b_val in ("BANCO", "BANK", "ENTIDAD") or "CHEQUE" in str(p[3]).upper():
                                 continue
 
-                            fe_val = pd.to_datetime(p[1].strip(), dayfirst=True, errors="coerce")
+                            e_val = pd.to_datetime(p[1].strip(), dayfirst=True, errors="coerce")
                             fp_val = pd.to_datetime(p[2].strip(), dayfirst=True, errors="coerce")
-                            nro_val = str(p[3]).strip()
+                            
+                            # Normalización estricta sin .0
+                            nro_val = core.clean_check_number(p[3])
                             
                             imp_raw = str(p[4]).replace("$", "").replace(" ", "").replace(".", "").replace(",", ".").strip()
                             try:
@@ -1561,7 +1563,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
                             benef_val = p[5].strip() if len(p) > 5 else ""
 
-                            if pd.notna(fp_val) and imp_val > 0:
+                            if pd.notna(fp_val) and imp_val > 0 and nro_val:
                                 nuevos_cheques.append({
                                     "Banco": b_val,
                                     "EMPRESA": "FD",
