@@ -1536,7 +1536,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                 key="txt_ch_excel_input",
             )
 
-            if st.button("📥 Procesar y Guardar Cheques en Google Sheets"):
+           if st.button("📥 Procesar y Guardar Cheques en Google Sheets"):
                 if not txt_ch_excel.strip():
                     st.warning("El campo de texto está vacío.")
                 else:
@@ -1545,30 +1545,35 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     for line in lines:
                         p = re.split(r"[\t;|]+", line)
                         if len(p) >= 5:
-                            b_val = p[0].strip().upper()
+                            b_val = str(p[0]).strip().upper()
+                            
+                            # Omitir fila de encabezados si fue copiada desde Excel
                             if b_val in ("BANCO", "BANK", "ENTIDAD") or "CHEQUE" in str(p[3]).upper():
                                 continue
 
-                            e_val = pd.to_datetime(p[1].strip(), dayfirst=True, errors="coerce")
-                            fp_val = pd.to_datetime(p[2].strip(), dayfirst=True, errors="coerce")
-                            
-                            # Normalización estricta sin .0
+                            # Parseo protegido de fechas
+                            fe_val = pd.to_datetime(str(p[1]).strip(), dayfirst=True, errors="coerce")
+                            fp_val = pd.to_datetime(str(p[2]).strip(), dayfirst=True, errors="coerce")
+
+                            # Limpieza estricta de número de cheque (elimina .0 y espacios)
                             nro_val = core.clean_check_number(p[3])
-                            
+
+                            # Limpieza de importe monetario
                             imp_raw = str(p[4]).replace("$", "").replace(" ", "").replace(".", "").replace(",", ".").strip()
                             try:
                                 imp_val = float(imp_raw) if imp_raw else 0.0
                             except (ValueError, TypeError):
                                 continue
 
-                            benef_val = p[5].strip() if len(p) > 5 else ""
+                            benef_val = str(p[5]).strip() if len(p) > 5 else ""
 
                             if pd.notna(fp_val) and imp_val > 0 and nro_val:
+                                fecha_emision_final = fe_val if pd.notna(fe_val) else fp_val
                                 nuevos_cheques.append({
                                     "Banco": b_val,
                                     "EMPRESA": "FD",
                                     "Cuenta Libradora": "",
-                                    "Fecha Emisión": fe_val if pd.notna(fe_val) else fp_val,
+                                    "Fecha Emisión": fecha_emision_final,
                                     "Fecha Pago": fp_val,
                                     "Nro. de Cheque": nro_val,
                                     "Importe": imp_val,
