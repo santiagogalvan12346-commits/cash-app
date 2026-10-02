@@ -1338,12 +1338,17 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             with col_o:
                 val_o = st.number_input("🟠 Hasta (Tensión)", value=int(curr_vals[2]), step=5_000_000, key=f"o_in_{mes_a_calibrar}")
 
-            # Guardar en memoria y persistir si hubo cambio
-            nuevos_vals = (float(val_g), float(val_y), float(val_o))
-            if st.session_state.semaforos_mes.get(mes_a_calibrar) != nuevos_vals:
-                st.session_state.semaforos_mes[mes_a_calibrar] = nuevos_vals
-                if st.session_state.is_admin:
-                    save_config_source(st.session_state.semaforos_mes, st.session_state.feriados)
+           nuevos_vals = (float(val_g), float(val_y), float(val_o))
+            st.session_state.semaforos_mes[mes_a_calibrar] = nuevos_vals
+
+            c_btn_guardar_s, _ = st.columns([1.5, 3])
+            with c_btn_guardar_s:
+                if st.button("💾 Guardar calibración en Google Sheets", key=f"btn_save_sem_{mes_a_calibrar}"):
+                    if st.session_state.is_admin:
+                        if save_config_source(st.session_state.semaforos_mes, st.session_state.feriados):
+                            st.success(f"Configuración de {mes_a_calibrar} guardada permanentemente.")
+                            time.sleep(0.5)
+                            st.rerun()
 
             st.caption(f"Semáforo activo para **{mes_a_calibrar}**. 🔴 Por encima de {fmt_ars(val_o)} se destaca como Tensión Crítica.")
 
