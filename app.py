@@ -369,7 +369,6 @@ def fmt_ars(value: float) -> str:
         return "$ 0"
 
 
-# Paleta e isotipos alineados al sistema Factory
 BANK_THEMES = {
     "GALICIA": {"color": "#ee6018", "bg": "rgba(238, 96, 24, 0.12)", "border": "rgba(238, 96, 24, 0.35)", "label": "Galicia"},
     "MACRO": {"color": "#a0ca92", "bg": "rgba(160, 202, 146, 0.12)", "border": "rgba(160, 202, 146, 0.35)", "label": "Macro"},
@@ -1238,105 +1237,84 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     # TAB A: Sábana de Cámaras
     # -----------------------------------------------------------------------
     with tab_sabana:
-        meses_unicos = sorted(df_ch["MES_KEY"].dropna().unique().tolist()) if not df_ch.empty else []
-        mes_actual_default = dt.date.today().strftime("%Y-%m")
-        if mes_actual_default not in meses_unicos and meses_unicos:
-            mes_actual_default = meses_unicos[0]
+        # Expander de Calibración de Semáforos y Feriados (PUNTO 1 Y 2)
+        with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
+            if "feriados" not in st.session_state:
+                st.session_state.feriados = []
+            if "semaforos_mes" not in st.session_state:
+                st.session_state.semaforos_mes = {}
 
-with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
-    # Inicialización de estructuras en session_state si no existieran
-    if "monthly_thresholds" not in st.session_state:
-        st.session_state["monthly_thresholds"] = {}
-    if "holidays" not in st.session_state:
-        st.session_state["holidays"] = set()
+            # Meses presentes en la base de cheques
+            meses_disp = sorted(df_ch["MES_KEY"].dropna().unique().tolist()) if not df_ch.empty and "MES_KEY" in df_ch.columns else [dt.date.today().strftime("%Y-%m")]
+            if not meses_disp:
+                meses_disp = [dt.date.today().strftime("%Y-%m")]
 
-    # --- 1. Calibrador de Semáforos ---
-    col_mes, col_g, col_y, col_o = st.columns([1.5, 1.2, 1.2, 1.2])
-    
-    # Obtener meses disponibles de la base o por defecto
-    available_months = sorted(list(set(df_clean['fecha_pago'].dt.strftime('%Y-%m').dropna()))) if 'fecha_pago' in df_clean.columns and not df_clean.empty else ["2026-09", "2026-10", "2026-11"]
-    
-    with col_mes:
-        selected_month = st.selectbox("Mes a calibrar:", available_months, key="calib_mes_select")
-    
-    # Valores actuales para el mes seleccionado
-    curr_t = st.session_state["monthly_thresholds"].get(selected_month, {"green": 50000000, "yellow": 100000000, "orange": 150000000})
-    
-    with col_g:
-        val_g = st.number_input("🟢 Hasta (Holgado)", value=int(curr_t["green"]), step=5000000, key=f"g_{selected_month}")
-    with col_y:
-        val_y = st.number_input("🟡 Hasta (Atención)", value=int(curr_t["yellow"]), step=5000000, key=f"y_{selected_month}")
-    with col_o:
-        val_o = st.number_input("🟠 Hasta (Tensión)", value=int(curr_t["orange"]), step=5000000, key=f"o_{selected_month}")
-    
-    # Guardar automáticamente la configuración para ese mes
-    st.session_state["monthly_thresholds"][selected_month] = {
-        "green": val_g,
-        "yellow": val_y,
-        "orange": val_o,
-        "custom": True
-    }
-    st.caption(f"Semáforo activo para **{selected_month}**. 🔴 Por encima de ${val_o:,.0f} se destaca como Tensión Crítica.")
+            col_mes, col_g, col_y, col_o = st.columns([1.5, 1.2, 1.2, 1.2])
+            with col_mes:
+                mes_a_calibrar = st.selectbox("Mes a calibrar:", meses_disp, key="calib_mes_sel")
 
-    # --- Visor de Parámetros Activos por Mes (PUNTO 1) ---
-    st.markdown("##### 📊 Registro de Parámetros por Mes")
-    meses_resumen = []
-    for m in available_months:
-        cfg = st.session_state["monthly_thresholds"].get(m)
-        is_custom = cfg.get("custom", False) if cfg else False
-        g = cfg["green"] if cfg else 50000000
-        y = cfg["yellow"] if cfg else 100000000
-        o = cfg["orange"] if cfg else 150000000
-        estado_label = "Personalizado ⚙️" if is_custom else "Por Defecto 📌"
-        meses_resumen.append({
-            "Mes": m,
-            "Estado": estado_label,
-            "🟢 Holgado": f"${g:,.0f}",
-            "🟡 Atención": f"${y:,.0f}",
-            "🟠 Tensión": f"${o:,.0f}",
-            "🔴 Crítico": f"> ${o:,.0f}"
-        })
-    st.dataframe(pd.DataFrame(meses_resumen), use_container_width=True, hide_index=True)
+            curr_vals = st.session_state.semaforos_mes.get(mes_a_calibrar, (50_000_000.0, 100_000_000.0, 150_000_000.0))
 
-    st.markdown("---")
+            with col_g:
+                val_g = st.number_input("🟢 Hasta (Holgado)", value=int(curr_vals[0]), step=5_000_000, key=f"g_in_{mes_a_calibrar}")
+            with col_y:
+                val_y = st.number_input("🟡 Hasta (Atención)", value=int(curr_vals[1]), step=5_000_000, key=f"y_in_{mes_a_calibrar}")
+            with col_o:
+                val_o = st.number_input("🟠 Hasta (Tensión)", value=int(curr_vals[2]), step=5_000_000, key=f"o_in_{mes_a_calibrar}")
 
-    # --- 2. Gestor Granular de Feriados Bancarios (PUNTO 2) ---
-    st.markdown("##### 🏛️ Feriados Bancarios Activos")
-    
-    col_f_in, col_f_btn = st.columns([2, 1])
-    with col_f_in:
-        nuevo_feriado = st.date_input("Agregar feriado bancario:", value=None, key="input_nuevo_feriado")
-    with col_f_btn:
-        st.write("")
-        st.write("")
-        if st.button("➕ Agregar feriado", use_container_width=True):
-            if nuevo_feriado:
-                st.session_state["holidays"].add(nuevo_feriado.strftime("%Y-%m-%d"))
-                st.rerun()
+            # Guardar en session_state
+            st.session_state.semaforos_mes[mes_a_calibrar] = (float(val_g), float(val_y), float(val_o))
+            st.caption(f"Semáforo activo para **{mes_a_calibrar}**. 🔴 Por encima de {fmt_ars(val_o)} se destaca como Tensión Crítica.")
 
-    # Visualización y eliminación individual
-    dias_es = {"Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles", "Thursday": "Jueves", "Friday": "Viernes", "Saturday": "Sábado", "Sunday": "Domingo"}
-    feriados_ordenados = sorted(list(st.session_state["holidays"]))
+            # --- Visor de Parámetros por Mes (PUNTO 1) ---
+            st.markdown("##### 📊 Registro de Parámetros por Mes")
+            meses_resumen = []
+            for m in meses_disp:
+                is_custom = m in st.session_state.semaforos_mes
+                v_g, v_y, v_o = st.session_state.semaforos_mes.get(m, (50_000_000.0, 100_000_000.0, 150_000_000.0))
+                meses_resumen.append({
+                    "Mes": m,
+                    "Estado": "Personalizado ⚙️" if is_custom else "Por Defecto 📌",
+                    "🟢 Holgado": fmt_ars(v_g),
+                    "🟡 Atención": fmt_ars(v_y),
+                    "🟠 Tensión": fmt_ars(v_o),
+                    "🔴 Crítico": f"> {fmt_ars(v_o)}",
+                })
+            st.dataframe(pd.DataFrame(meses_resumen), use_container_width=True, hide_index=True)
 
-    if feriados_ordenados:
-        st.caption(f"Total: **{len(feriados_ordenados)}** feriado(s) configurado(s).")
-        # Mostrar en tarjetas compactas con botón individual de borrado
-        for f_str in feriados_ordenados:
-            f_dt = pd.to_datetime(f_str)
-            dia_nombre = dias_es.get(f_dt.strftime("%A"), "")
-            col_txt, col_del = st.columns([5, 1])
-            with col_txt:
-                st.markdown(f"🏷️ **{dia_nombre} {f_dt.strftime('%d/%m/%Y')}** `[Feriado Bancario]`")
-            with col_del:
-                if st.button("✖", key=f"del_{f_str}", help=f"Eliminar feriado {f_str}"):
-                    st.session_state["holidays"].remove(f_str)
+            st.markdown("---")
+
+            # --- Gestor Granular de Feriados Bancarios (PUNTO 2) ---
+            st.markdown("##### 🏛️ Feriados Bancarios Activos")
+            col_f_in, col_f_btn = st.columns([2, 1])
+            with col_f_in:
+                nuevo_feriado = st.date_input("Agregar feriado bancario:", value=None, key="in_nuevo_feriado")
+            with col_f_btn:
+                st.write("")
+                st.write("")
+                if st.button("➕ Agregar feriado", use_container_width=True):
+                    if nuevo_feriado and nuevo_feriado not in st.session_state.feriados:
+                        st.session_state.feriados.append(nuevo_feriado)
+                        st.session_state.feriados.sort()
+                        st.rerun()
+
+            if st.session_state.feriados:
+                st.caption(f"Total: **{len(st.session_state.feriados)}** feriado(s) configurado(s).")
+                for f_item in list(st.session_state.feriados):
+                    dia_nom = core.DIAS_ES.get(f_item.weekday(), "").capitalize()
+                    col_txt, col_del = st.columns([5, 1])
+                    with col_txt:
+                        st.markdown(f"🏷️ **{dia_nom} {f_item.strftime('%d/%m/%Y')}** `[Feriado Bancario]`")
+                    with col_del:
+                        if st.button("✖", key=f"del_f_{f_item.strftime('%Y%m%d')}", help=f"Eliminar feriado {f_item.strftime('%d/%m/%Y')}"):
+                            st.session_state.feriados.remove(f_item)
+                            st.rerun()
+
+                if st.button("🗑️ Borrar todos los feriados", type="secondary"):
+                    st.session_state.feriados = []
                     st.rerun()
-        
-        if st.button("🗑️ Borrar todos los feriados", type="secondary"):
-            st.session_state["holidays"] = set()
-            st.rerun()
-    else:
-        st.info("No hay feriados bancarios cargados en el sistema.")
+            else:
+                st.info("No hay feriados bancarios cargados en el sistema.")
 
         st.divider()
 
@@ -1351,6 +1329,19 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
         if matriz_ch.empty:
             st.info("No hay cheques pendientes registrados para el período seleccionado.")
         else:
+            # Señalización de feriados en la sábana (PUNTO 3)
+            feriados_set = set(st.session_state.get("feriados", []))
+
+            def marcar_feriado_label(r):
+                if r.get("IS_SUBTOTAL", False):
+                    return r.get("FECHA_LABEL", "")
+                fp = r.get("Fecha Pago")
+                if pd.notna(fp) and hasattr(fp, "date") and fp.date() in feriados_set:
+                    return f"🚨 {r.get('FECHA_LABEL', '')} [FERIADO BANCARIO]"
+                return r.get("FECHA_LABEL", "")
+
+            matriz_ch["FECHA_LABEL"] = matriz_ch.apply(marcar_feriado_label, axis=1)
+
             def style_clearing(row):
                 is_sub = row.get("IS_SUBTOTAL", False)
                 styles = [""] * len(row)
@@ -1358,6 +1349,9 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
                 if is_sub:
                     sub_style = "background-color: #1d1a18; font-weight: 500; color: #a0ca92; border-top: 1px solid #3d3a39; border-bottom: 2px solid #4d4947;"
                     return [sub_style] * len(row)
+
+                fp = row.get("Fecha Pago")
+                es_feriado_row = pd.notna(fp) and hasattr(fp, "date") and fp.date() in feriados_set
 
                 val = row["TOTAL"]
                 mes_k = row.get("MES_KEY", "")
@@ -1371,6 +1365,9 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
                     style_tot = "background-color: #26291a; color: #fef08a; font-weight: 500;"
                 else:
                     style_tot = "background-color: #142217; color: #a0ca92; font-weight: 500;"
+
+                if es_feriado_row:
+                    styles = ["background-color: rgba(239, 68, 68, 0.08);"] * len(row)
 
                 idx_tot = list(row.index).index("TOTAL")
                 styles[idx_tot] = style_tot
@@ -1489,11 +1486,11 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
                     use_container_width=True,
                 )
 
-            view_matriz = matriz_ch.rename(columns={"FECHA_LABEL": "FECHA"}).drop(columns=["Fecha Pago", "PERIODO"], errors="ignore")
+            view_matriz = matriz_ch.rename(columns={"FECHA_LABEL": "FECHA"}).drop(columns=["PERIODO"], errors="ignore")
             format_dict = {b: lambda v: fmt_ars(v) if v > 0 else "—" for b in bancos_activos}
             format_dict["TOTAL"] = fmt_ars
 
-            cols_to_show = ["FECHA"] + bancos_activos + ["TOTAL", "IS_SUBTOTAL", "MES_KEY"]
+            cols_to_show = ["FECHA"] + bancos_activos + ["TOTAL", "IS_SUBTOTAL", "MES_KEY", "Fecha Pago"]
             st.dataframe(
                 view_matriz[cols_to_show].style.apply(style_clearing, axis=1).format(format_dict),
                 use_container_width=True,
@@ -1502,6 +1499,7 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
                 column_config={
                     "IS_SUBTOTAL": None,
                     "MES_KEY": None,
+                    "Fecha Pago": None,
                 },
             )
 
@@ -1522,6 +1520,7 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
             c_cols[i].markdown(f"<div style='text-align:center; font-family:\"Geist Mono\", monospace; font-size:11px; color:#8a8380; text-transform:uppercase; padding-bottom:8px;'>{nom_d}</div>", unsafe_allow_html=True)
 
         df_activos_cal = df_ch[df_ch.get("Estado", "Emitido").astype(str).str.lower() != "anulado"]
+        feriados_set_cal = set(st.session_state.get("feriados", []))
 
         for week in cal:
             w_cols = st.columns(7)
@@ -1534,8 +1533,9 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
                         df_dia = df_activos_cal[df_activos_cal["Fecha Pago"].dt.date == fecha_d]
                         tot_dia = df_dia["Importe"].sum() if not df_dia.empty else 0.0
 
-                        es_feriado = fecha_d in st.session_state.get("feriados", [])
-                        lbl_feriado = " <span style='color:#ee6018; font-size:10px; font-family:\"Geist Mono\", monospace;'>FERIADO</span>" if es_feriado else ""
+                        es_feriado = fecha_d in feriados_set_cal
+                        lbl_feriado = " <span style='background-color:#7f1d1d; color:#fca5a5; padding:2px 5px; border-radius:3px; font-size:9.5px; font-family:\"Geist Mono\", monospace; font-weight:600;'>🏛️ FERIADO</span>" if es_feriado else ""
+                        card_border_style = "border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.06);" if es_feriado else ""
 
                         if tot_dia > 0:
                             bancos_dia = df_dia["Banco"].dropna().unique().tolist()
@@ -1546,7 +1546,7 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
 
                             st.markdown(
                                 f"""
-                                <div class="cal-card-factory">
+                                <div class="cal-card-factory" style="{card_border_style}">
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
                                         <span style="font-family:'Geist Mono', monospace; font-size:11px; color:#8a8380;">{day:02d}</span>{lbl_feriado}
                                     </div>
@@ -1563,8 +1563,10 @@ with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
                         else:
                             st.markdown(
                                 f"""
-                                <div class="cal-card-empty">
-                                    <div style="font-family:'Geist Mono', monospace; font-size:11px; color:#4d4947;">{day:02d}{lbl_feriado}</div>
+                                <div class="cal-card-empty" style="{card_border_style}">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-family:'Geist Mono', monospace; font-size:11px; color:#4d4947;">{day:02d}</span>{lbl_feriado}
+                                    </div>
                                     <div style="font-size:11px; color:#3d3a39;">—</div>
                                     <div style="height:14px;"></div>
                                 </div>
