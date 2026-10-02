@@ -403,7 +403,6 @@ def init_state() -> None:
     if "sede_global" not in st.session_state:
         st.session_state.sede_global = core.SEDE_CONSOLIDADO
     
-    # Cargar parámetros persistentes desde Google Sheets
     if "semaforos_mes" not in st.session_state or "feriados" not in st.session_state:
         s_cloud, f_cloud = load_config_source()
         st.session_state.semaforos_mes = s_cloud
@@ -1210,7 +1209,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     st.title("Clearing Bancario — Cheques Emitidos")
     st.caption("Seguimiento diario de cámaras compensadoras · For Drink SA")
 
-    # KPIs superiores proyectados estrictamente de HOY en adelante
     kpis_ch = core.compute_clearing_kpis(df_ch, st.session_state.get("feriados", []), solo_desde_hoy=True)
 
     meses_con_promedios = list(kpis_ch.get("promedios_mensuales", {}).keys())
@@ -1235,7 +1233,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             prom_g = kpis_ch.get("promedio_diario", 0.0)
             st.metric("Promedio Diario Hábil", fmt_ars(prom_g))
 
-    # Micro-Badges y Barra Continua de Concentración Bancaria
     if kpis_ch.get("bancos_distribucion"):
         dist = kpis_ch["bancos_distribucion"]
         
@@ -1266,9 +1263,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             unsafe_allow_html=True,
         )
 
-    # -----------------------------------------------------------------------
-    # MODAL NATIVO: Detalle de Vencimientos por Día (@st.dialog)
-    # -----------------------------------------------------------------------
     if hasattr(st, "dialog"):
         @st.dialog("Detalle de Vencimientos del Día")
         def abrir_modal_dia(fecha_sel: dt.date, df_dia: pd.DataFrame):
@@ -1314,7 +1308,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     # TAB A: Sábana de Cámaras
     # -----------------------------------------------------------------------
     with tab_sabana:
-        # Expander de Calibración de Semáforos y Feriados con Persistencia
         with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
             if "feriados" not in st.session_state:
                 st.session_state.feriados = []
@@ -1338,7 +1331,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             with col_o:
                 val_o = st.number_input("🟠 Hasta (Tensión)", value=int(curr_vals[2]), step=5_000_000, key=f"o_in_{mes_a_calibrar}")
 
-          # Guardar en memoria y persistir bajo demanda con botón (12 espacios base)
             nuevos_vals = (float(val_g), float(val_y), float(val_o))
             st.session_state.semaforos_mes[mes_a_calibrar] = nuevos_vals
 
@@ -1353,7 +1345,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
             st.caption(f"Semáforo activo para **{mes_a_calibrar}**. 🔴 Por encima de {fmt_ars(val_o)} se destaca como Tensión Crítica.")
 
-            # --- Visor de Parámetros por Mes ---
             st.markdown("##### 📊 Registro de Parámetros por Mes")
             meses_resumen = []
             for m in meses_disp:
@@ -1371,7 +1362,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
             st.markdown("---")
 
-            # --- Gestor Granular de Feriados Bancarios ---
             st.markdown("##### 🏛️ Feriados Bancarios Activos")
             col_f_in, col_f_btn = st.columns([2, 1])
             with col_f_in:
@@ -1706,18 +1696,13 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                         if len(p) >= 5:
                             b_val = str(p[0]).strip().upper()
                             
-                            # Omitir fila de encabezados si fue copiada desde Excel
                             if b_val in ("BANCO", "BANK", "ENTIDAD") or "CHEQUE" in str(p[3]).upper():
                                 continue
 
-                            # Parseo protegido de fechas
                             fe_val = pd.to_datetime(str(p[1]).strip(), dayfirst=True, errors="coerce")
                             fp_val = pd.to_datetime(str(p[2]).strip(), dayfirst=True, errors="coerce")
-
-                            # Limpieza estricta de número de cheque (elimina .0 y espacios)
                             nro_val = core.clean_check_number(p[3])
 
-                            # Limpieza de importe monetario
                             imp_raw = str(p[4]).replace("$", "").replace(" ", "").replace(".", "").replace(",", ".").strip()
                             try:
                                 imp_val = float(imp_raw) if imp_raw else 0.0
