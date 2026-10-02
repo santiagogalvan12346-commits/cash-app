@@ -322,6 +322,77 @@ def save_cheques_source(df: pd.DataFrame) -> bool:
     return False
 
 
+# ---------------------------------------------------------------------------
+# Persistencia de Parámetros (Semáforos y Feriados en Pestaña 'Configuracion')
+# ---------------------------------------------------------------------------
+
+def load_config_source() -> tuple[dict, list[dt.date]]:
+    semaforos = {}
+    feriados = []
+    if conn is not None:
+        try:
+            df_cfg = conn.read(worksheet="Configuracion", ttl="0s")
+            if df_cfg is not None and not df_cfg.empty:
+                for _, r in df_cfg.iterrows():
+                    t = str(r.get("tipo", "")).strip().lower()
+                    clave = str(r.get("clave", "")).strip()
+                    if t == "semaforo" and clave:
+                        try:
+                            g = float(r.get("val_1", 50000000))
+                            y = float(r.get("val_2", 100000000))
+                            o = float(r.get("val_3", 150000000))
+                            semaforos[clave] = (g, y, o)
+                        except (ValueError, TypeError):
+                            pass
+                    elif t == "feriado" and clave:
+                        try:
+                            f_d = pd.to_datetime(clave).date()
+                            if f_d not in feriados:
+                                feriados.append(f_d)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+    feriados.sort()
+    return semaforos, feriados
+
+
+def save_config_source(semaforos: dict, feriados: list[dt.date]) -> bool:
+    if not st.session_state.is_admin:
+        return False
+
+    rows = []
+    for mes, vals in semaforos.items():
+        rows.append({
+            "tipo": "semaforo",
+            "clave": mes,
+            "val_1": float(vals[0]),
+            "val_2": float(vals[1]),
+            "val_3": float(vals[2]),
+            "extra": ""
+        })
+
+    for f in sorted(feriados):
+        rows.append({
+            "tipo": "feriado",
+            "clave": f.strftime("%Y-%m-%d"),
+            "val_1": "",
+            "val_2": "",
+            "val_3": "",
+            "extra": core.DIAS_ES.get(f.weekday(), "")
+        })
+
+    df_out = pd.DataFrame(rows, columns=["tipo", "clave", "val_1", "val_2", "val_3", "extra"])
+    if conn is not None:
+        try:
+            conn.update(worksheet="Configuracion", data=df_out)
+            return True
+        except Exception as e:
+            st.error(f"Error al sincronizar configuración: {e}")
+            return False
+    return False
+
+
 def init_state() -> None:
     if "df" not in st.session_state:
         st.session_state.df = load_data_source()
@@ -331,10 +402,12 @@ def init_state() -> None:
         st.session_state.editing_id = None
     if "sede_global" not in st.session_state:
         st.session_state.sede_global = core.SEDE_CONSOLIDADO
-    if "feriados" not in st.session_state:
-        st.session_state.feriados = []
-    if "semaforos_mes" not in st.session_state:
-        st.session_state.semaforos_mes = {}
+    
+    # Cargar parámetros persistentes desde Google Sheets
+    if "semaforos_mes" not in st.session_state or "feriados" not in st.session_state:
+        s_cloud, f_cloud = load_config_source()
+        st.session_state.semaforos_mes = s_cloud
+        st.session_state.feriados = f_cloud
 
 
 init_state()
@@ -460,6 +533,10 @@ if modulo_activo == "💵 Gestión de Tesorería":
             st.markdown("---")
             if st.button("🔄 Recargar datos desde Google Sheets"):
                 st.session_state.df = load_data_source()
+                st.session_state.df_cheques = load_cheques_source()
+                s_cloud, f_cloud = load_config_source()
+                st.session_state.semaforos_mes = s_cloud
+                st.session_state.feriados = f_cloud
                 st.rerun()
         st.sidebar.divider()
 
@@ -1237,14 +1314,13 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
     # TAB A: Sábana de Cámaras
     # -----------------------------------------------------------------------
     with tab_sabana:
-        # Expander de Calibración de Semáforos y Feriados (PUNTO 1 Y 2)
+        # Expander de Calibración de Semáforos y Feriados con Persistencia
         with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
             if "feriados" not in st.session_state:
                 st.session_state.feriados = []
             if "semaforos_mes" not in st.session_state:
                 st.session_state.semaforos_mes = {}
 
-            # Meses presentes en la base de cheques
             meses_disp = sorted(df_ch["MES_KEY"].dropna().unique().tolist()) if not df_ch.empty and "MES_KEY" in df_ch.columns else [dt.date.today().strftime("%Y-%m")]
             if not meses_disp:
                 meses_disp = [dt.date.today().strftime("%Y-%m")]
@@ -1262,11 +1338,16 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             with col_o:
                 val_o = st.number_input("🟠 Hasta (Tensión)", value=int(curr_vals[2]), step=5_000_000, key=f"o_in_{mes_a_calibrar}")
 
-            # Guardar en session_state
-            st.session_state.semaforos_mes[mes_a_calibrar] = (float(val_g), float(val_y), float(val_o))
+            # Guardar en memoria y persistir si hubo cambio
+            nuevos_vals = (float(val_g), float(val_y), float(val_o))
+            if st.session_state.semaforos_mes.get(mes_a_calibrar) != nuevos_vals:
+                st.session_state.semaforos_mes[mes_a_calibrar] = nuevos_vals
+                if st.session_state.is_admin:
+                    save_config_source(st.session_state.semaforos_mes, st.session_state.feriados)
+
             st.caption(f"Semáforo activo para **{mes_a_calibrar}**. 🔴 Por encima de {fmt_ars(val_o)} se destaca como Tensión Crítica.")
 
-            # --- Visor de Parámetros por Mes (PUNTO 1) ---
+            # --- Visor de Parámetros por Mes ---
             st.markdown("##### 📊 Registro de Parámetros por Mes")
             meses_resumen = []
             for m in meses_disp:
@@ -1284,7 +1365,7 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
             st.markdown("---")
 
-            # --- Gestor Granular de Feriados Bancarios (PUNTO 2) ---
+            # --- Gestor Granular de Feriados Bancarios ---
             st.markdown("##### 🏛️ Feriados Bancarios Activos")
             col_f_in, col_f_btn = st.columns([2, 1])
             with col_f_in:
@@ -1296,6 +1377,8 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     if nuevo_feriado and nuevo_feriado not in st.session_state.feriados:
                         st.session_state.feriados.append(nuevo_feriado)
                         st.session_state.feriados.sort()
+                        if st.session_state.is_admin:
+                            save_config_source(st.session_state.semaforos_mes, st.session_state.feriados)
                         st.rerun()
 
             if st.session_state.feriados:
@@ -1308,10 +1391,14 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
                     with col_del:
                         if st.button("✖", key=f"del_f_{f_item.strftime('%Y%m%d')}", help=f"Eliminar feriado {f_item.strftime('%d/%m/%Y')}"):
                             st.session_state.feriados.remove(f_item)
+                            if st.session_state.is_admin:
+                                save_config_source(st.session_state.semaforos_mes, st.session_state.feriados)
                             st.rerun()
 
                 if st.button("🗑️ Borrar todos los feriados", type="secondary"):
                     st.session_state.feriados = []
+                    if st.session_state.is_admin:
+                        save_config_source(st.session_state.semaforos_mes, st.session_state.feriados)
                     st.rerun()
             else:
                 st.info("No hay feriados bancarios cargados en el sistema.")
@@ -1329,7 +1416,6 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
         if matriz_ch.empty:
             st.info("No hay cheques pendientes registrados para el período seleccionado.")
         else:
-            # Señalización de feriados en la sábana (PUNTO 3)
             feriados_set = set(st.session_state.get("feriados", []))
 
             def marcar_feriado_label(r):
