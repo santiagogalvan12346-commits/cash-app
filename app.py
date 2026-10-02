@@ -1243,36 +1243,100 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
         if mes_actual_default not in meses_unicos and meses_unicos:
             mes_actual_default = meses_unicos[0]
 
-        with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados", expanded=False):
-            col_m_sel, col_sem1, col_sem2, col_sem3 = st.columns([1.2, 1, 1, 1])
-            with col_m_sel:
-                mes_conf = st.selectbox("Mes a calibrar:", meses_unicos if meses_unicos else [mes_actual_default], key="mes_conf_sem")
-            
-            defaults_mes = st.session_state.semaforos_mes.get(mes_conf, (50_000_000.0, 100_000_000.0, 150_000_000.0))
-            with col_sem1:
-                u_verde = st.number_input("🟢 Hasta (Holgado)", min_value=1_000_000.0, value=defaults_mes[0], step=5_000_000.0, format="%.0f", key=f"uv_{mes_conf}")
-            with col_sem2:
-                u_amarillo = st.number_input("🟡 Hasta (Atención)", min_value=u_verde, value=defaults_mes[1], step=5_000_000.0, format="%.0f", key=f"ua_{mes_conf}")
-            with col_sem3:
-                u_naranja = st.number_input("🟠 Hasta (Tensión)", min_value=u_amarillo, value=defaults_mes[2], step=5_000_000.0, format="%.0f", key=f"un_{mes_conf}")
+with st.expander("⚙️ Calibrar Semáforos por Mes y Feriados"):
+    # Inicialización de estructuras en session_state si no existieran
+    if "monthly_thresholds" not in st.session_state:
+        st.session_state["monthly_thresholds"] = {}
+    if "holidays" not in st.session_state:
+        st.session_state["holidays"] = set()
 
-            st.session_state.semaforos_mes[mes_conf] = (u_verde, u_amarillo, u_naranja)
-            st.caption(f"Semáforo guardado para **{mes_conf}**. 🔴 Por encima de {fmt_ars(u_naranja)} se destaca como Tensión Crítica.")
+    # --- 1. Calibrador de Semáforos ---
+    col_mes, col_g, col_y, col_o = st.columns([1.5, 1.2, 1.2, 1.2])
+    
+    # Obtener meses disponibles de la base o por defecto
+    available_months = sorted(list(set(df_clean['fecha_pago'].dt.strftime('%Y-%m').dropna()))) if 'fecha_pago' in df_clean.columns and not df_clean.empty else ["2026-09", "2026-10", "2026-11"]
+    
+    with col_mes:
+        selected_month = st.selectbox("Mes a calibrar:", available_months, key="calib_mes_select")
+    
+    # Valores actuales para el mes seleccionado
+    curr_t = st.session_state["monthly_thresholds"].get(selected_month, {"green": 50000000, "yellow": 100000000, "orange": 150000000})
+    
+    with col_g:
+        val_g = st.number_input("🟢 Hasta (Holgado)", value=int(curr_t["green"]), step=5000000, key=f"g_{selected_month}")
+    with col_y:
+        val_y = st.number_input("🟡 Hasta (Atención)", value=int(curr_t["yellow"]), step=5000000, key=f"y_{selected_month}")
+    with col_o:
+        val_o = st.number_input("🟠 Hasta (Tensión)", value=int(curr_t["orange"]), step=5000000, key=f"o_{selected_month}")
+    
+    # Guardar automáticamente la configuración para ese mes
+    st.session_state["monthly_thresholds"][selected_month] = {
+        "green": val_g,
+        "yellow": val_y,
+        "orange": val_o,
+        "custom": True
+    }
+    st.caption(f"Semáforo activo para **{selected_month}**. 🔴 Por encima de ${val_o:,.0f} se destaca como Tensión Crítica.")
 
-            st.markdown("---")
-            feriados_cargados = st.session_state.get("feriados", [])
-            f_feriado_nuevo = st.date_input("Agregar feriado bancario:", value=None, key="f_feriado_input")
-            col_b_f1, col_b_f2 = st.columns([1, 3])
-            if col_b_f1.button("Agregar feriado") and f_feriado_nuevo:
-                if f_feriado_nuevo not in feriados_cargados:
-                    feriados_cargados.append(f_feriado_nuevo)
-                    st.session_state.feriados = sorted(feriados_cargados)
+    # --- Visor de Parámetros Activos por Mes (PUNTO 1) ---
+    st.markdown("##### 📊 Registro de Parámetros por Mes")
+    meses_resumen = []
+    for m in available_months:
+        cfg = st.session_state["monthly_thresholds"].get(m)
+        is_custom = cfg.get("custom", False) if cfg else False
+        g = cfg["green"] if cfg else 50000000
+        y = cfg["yellow"] if cfg else 100000000
+        o = cfg["orange"] if cfg else 150000000
+        estado_label = "Personalizado ⚙️" if is_custom else "Por Defecto 📌"
+        meses_resumen.append({
+            "Mes": m,
+            "Estado": estado_label,
+            "🟢 Holgado": f"${g:,.0f}",
+            "🟡 Atención": f"${y:,.0f}",
+            "🟠 Tensión": f"${o:,.0f}",
+            "🔴 Crítico": f"> ${o:,.0f}"
+        })
+    st.dataframe(pd.DataFrame(meses_resumen), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    # --- 2. Gestor Granular de Feriados Bancarios (PUNTO 2) ---
+    st.markdown("##### 🏛️ Feriados Bancarios Activos")
+    
+    col_f_in, col_f_btn = st.columns([2, 1])
+    with col_f_in:
+        nuevo_feriado = st.date_input("Agregar feriado bancario:", value=None, key="input_nuevo_feriado")
+    with col_f_btn:
+        st.write("")
+        st.write("")
+        if st.button("➕ Agregar feriado", use_container_width=True):
+            if nuevo_feriado:
+                st.session_state["holidays"].add(nuevo_feriado.strftime("%Y-%m-%d"))
+                st.rerun()
+
+    # Visualización y eliminación individual
+    dias_es = {"Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles", "Thursday": "Jueves", "Friday": "Viernes", "Saturday": "Sábado", "Sunday": "Domingo"}
+    feriados_ordenados = sorted(list(st.session_state["holidays"]))
+
+    if feriados_ordenados:
+        st.caption(f"Total: **{len(feriados_ordenados)}** feriado(s) configurado(s).")
+        # Mostrar en tarjetas compactas con botón individual de borrado
+        for f_str in feriados_ordenados:
+            f_dt = pd.to_datetime(f_str)
+            dia_nombre = dias_es.get(f_dt.strftime("%A"), "")
+            col_txt, col_del = st.columns([5, 1])
+            with col_txt:
+                st.markdown(f"🏷️ **{dia_nombre} {f_dt.strftime('%d/%m/%Y')}** `[Feriado Bancario]`")
+            with col_del:
+                if st.button("✖", key=f"del_{f_str}", help=f"Eliminar feriado {f_str}"):
+                    st.session_state["holidays"].remove(f_str)
                     st.rerun()
-            if feriados_cargados:
-                col_b_f2.write(f"Feriados: {', '.join([d.strftime('%d/%m/%Y') for d in feriados_cargados])}")
-                if st.button("Limpiar todos los feriados", key="btn_clear_feriados"):
-                    st.session_state.feriados = []
-                    st.rerun()
+        
+        if st.button("🗑️ Borrar todos los feriados", type="secondary"):
+            st.session_state["holidays"] = set()
+            st.rerun()
+    else:
+        st.info("No hay feriados bancarios cargados en el sistema.")
 
         st.divider()
 
