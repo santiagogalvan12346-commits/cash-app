@@ -1338,7 +1338,8 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             with col_o:
                 val_o = st.number_input("🟠 Hasta (Tensión)", value=int(curr_vals[2]), step=5_000_000, key=f"o_in_{mes_a_calibrar}")
 
-           nuevos_vals = (float(val_g), float(val_y), float(val_o))
+          # Guardar en memoria y persistir bajo demanda con botón (12 espacios base)
+            nuevos_vals = (float(val_g), float(val_y), float(val_o))
             st.session_state.semaforos_mes[mes_a_calibrar] = nuevos_vals
 
             c_btn_guardar_s, _ = st.columns([1.5, 3])
