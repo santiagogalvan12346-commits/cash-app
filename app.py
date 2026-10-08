@@ -1449,35 +1449,74 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
 
             matriz_ch["FECHA_LABEL"] = matriz_ch.apply(marcar_feriado_label, axis=1)
 
-            def style_clearing(row):
-                is_sub = row.get("IS_SUBTOTAL", False)
-                styles = [""] * len(row)
+            def style_clearing_matrix(df_view: pd.DataFrame) -> pd.DataFrame:
+                styles = pd.DataFrame("", index=df_view.index, columns=df_view.columns)
+                feriados_set = set(st.session_state.get("feriados", []))
+                n_rows = len(df_view)
 
-                if is_sub:
-                    sub_style = "background-color: #1d1a18; font-weight: 500; color: #a0ca92; border-top: 1px solid #3d3a39; border-bottom: 2px solid #4d4947;"
-                    return [sub_style] * len(row)
+                es_sub = df_view.get("IS_SUBTOTAL", pd.Series(False, index=df_view.index)).fillna(False)
+                
+                es_inhabil = []
+                for _, r in df_view.iterrows():
+                    if r.get("IS_SUBTOTAL", False):
+                        es_inhabil.append(False)
+                        continue
+                    fp = r.get("Fecha Pago")
+                    if pd.notna(fp) and hasattr(fp, "date"):
+                        d_val = fp.date()
+                        es_in = (d_val.weekday() >= 5) or (d_val in feriados_set)
+                        es_inhabil.append(es_in)
+                    else:
+                        lbl = str(r.get("FECHA", "")).upper()
+                        es_in = ("FERIADO" in lbl) or ("SÁB" in lbl) or ("DOM" in lbl) or ("SAB" in lbl)
+                        es_inhabil.append(es_in)
 
-                fp = row.get("Fecha Pago")
-                es_feriado_row = pd.notna(fp) and hasattr(fp, "date") and fp.date() in feriados_set
+                for i in range(n_rows):
+                    row = df_view.iloc[i]
 
-                val = row["TOTAL"]
-                mes_k = row.get("MES_KEY", "")
-                u_v, u_a, u_n = st.session_state.semaforos_mes.get(mes_k, (50_000_000.0, 100_000_000.0, 150_000_000.0))
+                    if es_sub.iloc[i]:
+                        sub_style = "background-color: #1d1a18; font-weight: 500; color: #a0ca92; border-top: 1px solid #3d3a39; border-bottom: 2px solid #4d4947;"
+                        styles.iloc[i, :] = sub_style
+                        continue
 
-                if val > u_n:
-                    style_tot = "background-color: #451a03; color: #ee6018; font-weight: 500;"
-                elif val > u_a:
-                    style_tot = "background-color: #3b2811; color: #fcd34d; font-weight: 500;"
-                elif val > u_v:
-                    style_tot = "background-color: #26291a; color: #fef08a; font-weight: 500;"
-                else:
-                    style_tot = "background-color: #142217; color: #a0ca92; font-weight: 500;"
+                    val = row["TOTAL"]
+                    mes_k = row.get("MES_KEY", "")
+                    u_v, u_a, u_n = st.session_state.semaforos_mes.get(mes_k, (50_000_000.0, 100_000_000.0, 150_000_000.0))
 
-                if es_feriado_row:
-                    styles = ["background-color: rgba(239, 68, 68, 0.08);"] * len(row)
+                    if val > u_n:
+                        style_tot = "background-color: #451a03; color: #ee6018; font-weight: 500;"
+                    elif val > u_a:
+                        style_tot = "background-color: #3b2811; color: #fcd34d; font-weight: 500;"
+                    elif val > u_v:
+                        style_tot = "background-color: #26291a; color: #fef08a; font-weight: 500;"
+                    else:
+                        style_tot = "background-color: #142217; color: #a0ca92; font-weight: 500;"
 
-                idx_tot = list(row.index).index("TOTAL")
-                styles[idx_tot] = style_tot
+                    idx_tot = df_view.columns.get_loc("TOTAL")
+
+                    cur_in = es_inhabil[i]
+                    prev_in = es_inhabil[i - 1] if i > 0 else False
+                    next_in = es_inhabil[i + 1] if i < (n_rows - 1) else False
+
+                    if cur_in:
+                        b_top = "border-top: 1px dashed #d97706 !important; " if not prev_in else "border-top: none; "
+                        b_bot = "border-bottom: 1px dashed #d97706 !important; " if not next_in else "border-bottom: none; "
+                        inh_style = (
+                            "background-color: rgba(217, 119, 6, 0.08) !important; "
+                            "border-left: 3px solid #d97706 !important; "
+                            "border-right: 1px solid rgba(217, 119, 6, 0.25) !important; "
+                            + b_top + b_bot
+                        )
+                        styles.iloc[i, :] = inh_style
+                    elif prev_in and not cur_in:
+                        post_style = (
+                            "border-left: 3px solid #10b981 !important; "
+                            "border-top: 1px dashed #d97706 !important;"
+                        )
+                        styles.iloc[i, :] = post_style
+
+                    styles.iloc[i, idx_tot] = style_tot
+
                 return styles
 
             def export_clearing_excel(pivot_df: pd.DataFrame, bancos_list: list[str]) -> bytes:
