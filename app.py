@@ -31,7 +31,13 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, portrait, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-
+def get_now_ar() -> dt.datetime:
+    """Devuelve fecha y hora oficial de Argentina (UTC-3)."""
+    try:
+        import zoneinfo
+        return dt.datetime.now(zoneinfo.ZoneInfo("America/Argentina/Buenos_Aires"))
+    except Exception:
+        return dt.datetime.now(dt.timezone(dt.timedelta(hours=-3)))
 try:
     from streamlit_gsheets import GSheetsConnection
     HAS_GSHEETS = True
@@ -969,18 +975,28 @@ if modulo_activo == "💵 Gestión de Tesorería":
 
             def export_provider_to_pdf(df_table: pd.DataFrame, prov_name: str, op_name: str) -> bytes:
                 buf = BytesIO()
-                doc = SimpleDocTemplate(buf, pagesize=portrait(A4), rightMargin=28, leftMargin=28, topMargin=30, bottomMargin=30)
+                doc = SimpleDocTemplate(buf, pagesize=portrait(A4), rightMargin=24, leftMargin=24, topMargin=28, bottomMargin=28)
                 styles = getSampleStyleSheet()
                 story = []
 
-                title_style = ParagraphStyle('EscTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1F4E78'), spaceAfter=4)
-                sub_style = ParagraphStyle('EscSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555555'), spaceAfter=14)
+                title_style = ParagraphStyle('EscTitle', parent=styles['Heading1'], fontSize=13, textColor=colors.HexColor('#1F4E78'), spaceAfter=4)
+                sub_style = ParagraphStyle('EscSub', parent=styles['Normal'], fontSize=8.5, textColor=colors.HexColor('#555555'), spaceAfter=12)
+
+                obs_style = ParagraphStyle('EscObs', fontName='Helvetica', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#222222'))
+                hdr_style = ParagraphStyle('EscHdr', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white, alignment=1)
+                hdr_obs = ParagraphStyle('EscHdrObs', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white, alignment=0)
+                tot_style = ParagraphStyle('EscTot', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor('#1F4E78'), alignment=1)
 
                 op_txt = f" — {op_name}" if op_name != "Todas las Operaciones (Consolidado)" else ""
                 story.append(Paragraph(f"<b>FOR DRINK SA — PLAN DE PAGOS ACORDADO</b>", title_style))
-                story.append(Paragraph(f"<b>Proveedor:</b> {prov_name.upper()}{op_txt}<br/><b>Emisión:</b> {dt.datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
+                story.append(Paragraph(f"<b>Proveedor:</b> {prov_name.upper()}{op_txt}<br/><b>Emisión:</b> {get_now_ar().strftime('%d/%m/%Y %H:%M')}", sub_style))
 
-                headers = ["Fecha Vto.", "Importe ARS", "Estado", "Detalle / Observaciones"]
+                headers = [
+                    Paragraph("<b>Fecha Vto.</b>", hdr_style),
+                    Paragraph("<b>Importe ARS</b>", hdr_style),
+                    Paragraph("<b>Estado</b>", hdr_style),
+                    Paragraph("<b>Detalle / Observaciones</b>", hdr_obs)
+                ]
                 table_data = [headers]
                 total_suma = 0.0
 
@@ -988,28 +1004,37 @@ if modulo_activo == "💵 Gestión de Tesorería":
                     f_val = r["Fecha Vto."].strftime("%d/%m/%Y") if pd.notna(r["Fecha Vto."]) else ""
                     imp_f = float(r["Importe ARS"]) if pd.notna(r["Importe ARS"]) else 0.0
                     total_suma += imp_f
+
+                    obs_texto = str(r.get("Detalle / Observaciones", "")).strip()
+                    obs_p = Paragraph(obs_texto, obs_style) if obs_texto and obs_texto.lower() != "nan" else Paragraph("—", obs_style)
+
                     table_data.append([
                         f_val,
                         fmt_ars(imp_f),
                         str(r.get("Estado", "")),
-                        str(r.get("Detalle / Observaciones", "")),
+                        obs_p,
                     ])
 
-                table_data.append(["TOTAL ACORDADO", fmt_ars(total_suma), "", ""])
+                table_data.append([
+                    Paragraph("<b>TOTAL ACORDADO</b>", tot_style),
+                    fmt_ars(total_suma),
+                    "",
+                    ""
+                ])
 
-                t = Table(table_data, colWidths=[80, 105, 80, 265])
+                # Ancho útil A4 = 547 pt: 68pt + 90pt + 59pt + 330pt (~60% para observaciones)
+                t = Table(table_data, colWidths=[68, 90, 59, 330])
                 t.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4E78')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 8.5),
-                    ('ALIGN', (0, 0), (2, -1), 'CENTER'),
+                    ('ALIGN', (0, 1), (0, -1), 'CENTER'),
                     ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
-                    ('ALIGN', (3, 1), (3, -1), 'LEFT'),
+                    ('ALIGN', (2, 1), (2, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                     ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#DDDDDD')),
-                    ('FONTSIZE', (0, 1), (-1, -1), 8),
-                    ('TOPPADDING', (0, 0), (-1, -1), 5),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                    ('FONTSIZE', (0, 1), (-1, -1), 7.5),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                     ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#EFEFEF')),
                     ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ]))
