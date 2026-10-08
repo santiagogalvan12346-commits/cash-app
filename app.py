@@ -1601,9 +1601,9 @@ elif modulo_activo == "🏦 Clearing / Cheques Emitidos":
             format_dict = {b: lambda v: fmt_ars(v) if v > 0 else "—" for b in bancos_activos}
             format_dict["TOTAL"] = fmt_ars
 
-            cols_to_show = ["FECHA"] + bancos_activos + ["TOTAL", "IS_SUBTOTAL", "MES_KEY", "Fecha Pago"]
+           cols_to_show = ["FECHA"] + bancos_activos + ["TOTAL", "IS_SUBTOTAL", "MES_KEY", "Fecha Pago"]
             st.dataframe(
-                view_matriz[cols_to_show].style.apply(style_clearing_matrix, axis=None).format(format_dict),
+                view_matriz[cols_to_show].style.apply(style_clearing, axis=1).format(format_dict),
                 use_container_width=True,
                 height=580,
                 hide_index=True,
